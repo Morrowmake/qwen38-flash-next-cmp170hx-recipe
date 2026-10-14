@@ -269,8 +269,11 @@ CONTROLLED_ARGS=(
   --spec-method --spec-model --spec-tokens --diffusion-config
   --language-model-only --limit-mm-per-prompt --mm-encoder-only
   --mm-encoder-tp-mode --mm-encoder-attn-dtype
-  --max-model-len --gpu-memory-utilization --kv-cache-memory-bytes
+  --max-model-len --gpu-memory-utilization --device-memory-utilization --kv-cache-memory-bytes
   --num-gpu-blocks-override
+  # No KV or weight offload; the n-gram table placement is PLE_PLACEMENT.
+  --cpu-offload-gb --cpu-offload-params --offload-backend --offload-group-size --offload-num-in-group
+  --offload-prefetch-step --offload-params --kv-offloading-size --kv-offloading-backend --kv-transfer-config
 )
 for argument in ${EXTRA[@]+"${EXTRA[@]}"}; do
   blocked=0

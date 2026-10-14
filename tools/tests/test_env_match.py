@@ -125,7 +125,10 @@ class LauncherRefusals(unittest.TestCase):
     def test_refusals(self):
         for env in ({"CUDA_VISIBLE_DEVICES": "0"}, {"CUDA_VISIBLE_DEVICES": "1,1"}, {"LAYOUT": "tp4"},
                     {"MAX_LEN": "131072"}, {"GPU_UTIL": "0.9"}, {"EXTRA_ARGS": "--max-model-len 1000"},
-                    {"P2P": "maybe"}, {"PLE_PLACEMENT": "nfs"}):
+                    {"P2P": "maybe"}, {"PLE_PLACEMENT": "nfs"},
+                    {"EXTRA_ARGS": "--device-memory-utilization 0.97"}, {"EXTRA_ARGS": "--cpu-offload-gb 8"},
+                    {"EXTRA_ARGS": "--offload_backend prefetch"}, {"EXTRA_ARGS": "--kv-offloading-size=64"},
+                    {"EXTRA_ARGS": '--kv-transfer-config {"kv_connector":"OffloadingConnector"}'}):
             with self.subTest(env=env):
                 self.assertEqual(self.dry(**env).returncode, 2)
 
