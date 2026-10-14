@@ -121,7 +121,6 @@ run); a prefix assignment beats `.env` for one run
 | `LOCAL_ARGMAX` | `0` | `1`: per-card draft argmax, same drafts |
 | `MAX_SEQS` | `8` | concurrent sequences |
 | `MAX_BATCHED` | `3460` | tokens per scheduler step |
-| `GRAPH_MODE` | `PIECEWISE` | CUDA graph mode, `PIECEWISE` or `FULL` |
 | `PLE_PLACEMENT` | `ssd` | n-gram table placement: `ssd`; `ram` and `device` are comparison placements, not the tested default |
 | `REASONING_PARSER` / `TOOL_PARSER` | `qwen3` / `qwen3_coder` | output parsers |
 | `EXTRA_ARGS` | empty | extra vLLM arguments; options that change the deployment are refused |

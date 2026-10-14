@@ -131,7 +131,8 @@ class LauncherRefusals(unittest.TestCase):
                     {"P2P": "maybe"}, {"PLE_PLACEMENT": "nfs"},
                     {"EXTRA_ARGS": "--device-memory-utilization 0.97"}, {"EXTRA_ARGS": "--cpu-offload-gb 8"},
                     {"EXTRA_ARGS": "--offload_backend prefetch"}, {"EXTRA_ARGS": "--kv-offloading-size=64"},
-                    {"EXTRA_ARGS": '--kv-transfer-config {"kv_connector":"OffloadingConnector"}'}):
+                    {"EXTRA_ARGS": '--kv-transfer-config {"kv_connector":"OffloadingConnector"}'},
+                    {"GRAPH_MODE": "FULL"}, {"GRAPH_MODE": "NONE"}):
             with self.subTest(env=env):
                 self.assertEqual(self.dry(**env).returncode, 2)
 

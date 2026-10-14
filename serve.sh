@@ -21,7 +21,7 @@
 #   SERVED_MODEL_NAME  model id clients send (default below)
 # Cards: CUDA_VISIBLE_DEVICES selects exactly two distinct physical cards
 #   (nvidia-smi numbering; default below).
-# Env overrides: MAX_SEQS, MAX_BATCHED, SPEC_N, LOCAL_ARGMAX, GRAPH_MODE,
+# Env overrides: MAX_SEQS, MAX_BATCHED, SPEC_N, LOCAL_ARGMAX,
 #   PLE_PLACEMENT, REASONING_PARSER, TOOL_PARSER, EXTRA_ARGS, P2P, BOOT_CHECK.
 #   MAX_LEN must stay 262144 and GPU_UTIL 0.95 (refused otherwise);
 #   FIRST_LIGHT=1 is the 32K/eager/no-MTP diagnostic, not a serving mode.
@@ -189,7 +189,7 @@ if [ "$FIRST_LIGHT" = 1 ]; then DEFAULT_GRAPH_CONFIG=$QWEN_DEFAULT_DIAGNOSTIC_GR
 DEFAULT_GRAPH_MODE=${DEFAULT_GRAPH_CONFIG#*\"cudagraph_mode\":\"}
 DEFAULT_GRAPH_MODE=${DEFAULT_GRAPH_MODE%%\"*}
 GRAPH_MODE=${GRAPH_MODE:-$DEFAULT_GRAPH_MODE}
-case "$GRAPH_MODE" in PIECEWISE|FULL|NONE) ;; *) echo 'GRAPH_MODE must be PIECEWISE, FULL or NONE' >&2; exit 2;; esac
+case "$GRAPH_MODE" in PIECEWISE|NONE) ;; *) echo 'GRAPH_MODE must be PIECEWISE (NONE with FIRST_LIGHT=1)' >&2; exit 2;; esac
 if [ "$GRAPH_MODE" = "$DEFAULT_GRAPH_MODE" ]; then
   GRAPH_ARGS=(--compilation-config "$DEFAULT_GRAPH_CONFIG")
 else
