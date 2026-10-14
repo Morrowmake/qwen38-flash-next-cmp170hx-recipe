@@ -32,6 +32,8 @@
 #   VLLM_QWEN4_QSA_TOPK_CANONICAL=0  canonical sparse-attention top-k ties
 #   VLLM_CUSTOM_ALLREDUCE_FLAGS=0    flags-in-data two-shot TP2 all-reduce
 #   VLLM_EXL3_PLE_OVERLAP=0          PLE row reads overlapping the previous layer
+#   VLLM_EXL3_MOE_V2=0               EXL3 MoE kernel v2 for MoE calls of 1-64 rows
+#   VLLM_EXL3_DENSE_SPLITK=0         EXL3 split-K dense kernel for small decode launches
 #   P2P=auto                         verify peer content before enabling P2P
 #   P2P=off                          disable all peer transports
 #   P2P=force                        bypass the content check
@@ -53,6 +55,8 @@ QWEN_DEFAULT_CUDA_VISIBLE_DEVICES=0,1
 QWEN_DEFAULT_VLLM_QWEN4_QSA_TOPK_CANONICAL=1
 QWEN_DEFAULT_VLLM_CUSTOM_ALLREDUCE_FLAGS=1
 QWEN_DEFAULT_VLLM_EXL3_PLE_OVERLAP=1
+QWEN_DEFAULT_VLLM_EXL3_MOE_V2=1
+QWEN_DEFAULT_VLLM_EXL3_DENSE_SPLITK=1
 QWEN_DEFAULT_VLLM_USE_BREAKABLE_CUDAGRAPH=1
 QWEN_DEFAULT_VLLM_CUSTOM_ALLREDUCE_PCIE_P2P=1
 QWEN_DEFAULT_NCCL_P2P_LEVEL=SYS
@@ -82,7 +86,7 @@ FIRST_LIGHT=${FIRST_LIGHT:-$QWEN_DEFAULT_FIRST_LIGHT}
 case "$FIRST_LIGHT" in 0|1) ;; *) echo 'FIRST_LIGHT must be 0 or 1' >&2; exit 2;; esac
 if [ "$FIRST_LIGHT" = 1 ]; then MODE=${1:-$QWEN_DEFAULT_DIAGNOSTIC_MODE}; else MODE=${1:-$QWEN_DEFAULT_MODE}; fi
 case "$MODE" in
-  -h|--help) sed -n '2,39p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,41p' "$0"; exit 0 ;;
   mtp|none) ;;
   *) echo "serve.sh: unknown argument '$MODE' (expected mtp, none or --help)" >&2; exit 2 ;;
 esac
@@ -167,6 +171,10 @@ export VLLM_QWEN4_QSA_TOPK_CANONICAL=${VLLM_QWEN4_QSA_TOPK_CANONICAL:-$QWEN_DEFA
 export VLLM_CUSTOM_ALLREDUCE_FLAGS=${VLLM_CUSTOM_ALLREDUCE_FLAGS:-${QWEN_DEFAULT_VLLM_CUSTOM_ALLREDUCE_FLAGS:-0}}
 # SSD PLE row reads overlap the preceding decoder layer instead of stalling the step.
 export VLLM_EXL3_PLE_OVERLAP=${VLLM_EXL3_PLE_OVERLAP:-${QWEN_DEFAULT_VLLM_EXL3_PLE_OVERLAP:-0}}
+# EXL3 MoE kernel v2 for MoE calls of 1-64 rows (decode and short prefills).
+export VLLM_EXL3_MOE_V2=${VLLM_EXL3_MOE_V2:-${QWEN_DEFAULT_VLLM_EXL3_MOE_V2:-0}}
+# EXL3 split-K dense kernel for the small-row (tiny and small tile) launches.
+export VLLM_EXL3_DENSE_SPLITK=${VLLM_EXL3_DENSE_SPLITK:-${QWEN_DEFAULT_VLLM_EXL3_DENSE_SPLITK:-0}}
 export VLLM_USE_BREAKABLE_CUDAGRAPH=${VLLM_USE_BREAKABLE_CUDAGRAPH:-$QWEN_DEFAULT_VLLM_USE_BREAKABLE_CUDAGRAPH}
 if [ "$FIRST_LIGHT" = 0 ] && [ "$VLLM_USE_BREAKABLE_CUDAGRAPH" != 1 ]; then
   echo 'Production EXL3 requires VLLM_USE_BREAKABLE_CUDAGRAPH=1' >&2; exit 2

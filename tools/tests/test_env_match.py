@@ -13,6 +13,8 @@ VALIDATED = {
     "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:False",
     "VLLM_CUSTOM_ALLREDUCE_FLAGS": "1",
     "VLLM_CUSTOM_ALLREDUCE_PCIE_P2P": "1",
+    "VLLM_EXL3_DENSE_SPLITK": "1",
+    "VLLM_EXL3_MOE_V2": "1",
     "VLLM_EXL3_PLE_OVERLAP": "1",
     "VLLM_QWEN4_QSA_TOPK_CANONICAL": "1",
     "VLLM_USE_BREAKABLE_CUDAGRAPH": "1",
@@ -78,9 +80,9 @@ class EffectiveMode(unittest.TestCase):
         self.assertIn("banner: equal apart from the card numbers", result.stdout)
 
     def test_engine_switch_missing_from_recipe_fails(self):
-        result = self.check({**VALIDATED, "VLLM_EXL3_MOE_V2": "1"})
+        result = self.check({**VALIDATED, "VLLM_QWEN4_ROUTER_FP32": "1"})
         self.assertEqual(result.returncode, 1)
-        self.assertIn("VLLM_EXL3_MOE_V2: validated '1', recipe None", result.stdout)
+        self.assertIn("VLLM_QWEN4_ROUTER_FP32: validated '1', recipe None", result.stdout)
 
     def test_recipe_export_missing_from_validation_fails(self):
         effective = dict(VALIDATED)
@@ -88,6 +90,15 @@ class EffectiveMode(unittest.TestCase):
         result = self.check(effective)
         self.assertEqual(result.returncode, 1)
         self.assertIn("VLLM_EXL3_PLE_OVERLAP: validated None, recipe '1'", result.stdout)
+
+    def test_ports_off_validation_fails(self):
+        for name in ("VLLM_EXL3_MOE_V2", "VLLM_EXL3_DENSE_SPLITK"):
+            with self.subTest(name=name):
+                effective = dict(VALIDATED)
+                del effective[name]
+                result = self.check(effective)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(f"{name}: validated None, recipe '1'", result.stdout)
 
     def test_launcher_input_mismatch_fails(self):
         result = self.check({**VALIDATED, "MAX_BATCHED": "1800"})

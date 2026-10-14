@@ -17,6 +17,13 @@ cd qwen38-flash-next-cmp170hx-recipe
 The engine runs in a container pinned by digest (`RUNTIME=container`, the
 default) or from a venv built on your machine (`RUNTIME=native`).
 
+> **Which setups this release is for.** Two cards in tensor-parallel 2,
+> measured on **PCIe x16 links** (cards with the x16 capacitor
+> modification). Every decode step exchanges activations between the two
+> cards; performance on cards limited to x4 links has not been measured.
+> `./start.sh` reports each card's link width and warns if one is narrower
+> than x16.
+
 ## Hardware
 
 | | |
@@ -44,33 +51,31 @@ the cards with `CUDA_VISIBLE_DEVICES` (two distinct nvidia-smi numbers).
 
 ## Speed
 
-Numbers are measured on this hardware with P2P on: 400 greedy tokens per
-request, output tokens counted as one plus the accepted drafts per step.
-**The release table is filled from the release's own validation runs; every
-number below is TBD-at-release** and is shown only to give the order of
-magnitude. Numbers marked † change if the EXL3 kernel ports or the second
-optimisation round are adopted before release.
+Measured on 2× CMP 170HX (74 SMs, 180 W, PCIe x16, driver 610.57.04) with
+P2P on and the recipe defaults: 400 greedy tokens per request, output tokens
+counted as one plus the accepted drafts per step.
+
+**Draft: every number marked ‡ is re-measured on the release tree before
+publication and replaced by that measurement.**
 
 | Users | Output tok/s (sum) | Step |
 |---|---|---|
-| 1 | 51.9 † | 53.52 ms † |
-| 2 | 71.4 † | 67.2 ms † |
-| 4 | 116.1 † | 87.8 ms † |
-| 8 | 172.0 † | 114.9 ms † |
+| 1 | 69.3 ‡ | 33.36 ms ‡ |
+| 2 | 112.5 ‡ | 43.6 ms ‡ |
+| 4 | 166.0 ‡ | 56.2 ms ‡ |
+| 8 | 242.2 ‡ | 80.6 ms ‡ |
 
-With both EXL3 kernel ports on, the same measurement gave 69.3 / 112.5 /
-166.0 / 242.2 tok/s at 1/2/4/8 users; the ports are not part of this
-release unless adopted, in which case this table is replaced (TBD-at-release).
+Two EXL3 kernels written for this card are on by default: a MoE kernel for
+calls of 1 to 64 rows and a split-K dense kernel for the small decode
+launches (see Engine switches).
 
 | Other measurements | Value |
 |---|---|
-| KV cache | 1,038,657 tokens |
-| 262,144-token context | 262,143 prompt + 1 output token accepted; one more token refused (HTTP 400) |
-| Quality | HumanEval pass@1 0.9756; GSM8K 1286/1319 (0.9750) |
-| Vision | image and video requests pass |
-| n-gram table from SSD | cold vs warm page cache: time to first token ×1.006–1.044, step ×1.00–1.02 |
-
-All of these are TBD-at-release: they are re-measured on the release tree.
+| KV cache | 1,040,074 tokens ‡ |
+| 262,144-token context | 262,143 prompt + 1 output token accepted; one more token refused (HTTP 400) ‡ |
+| Quality | HumanEval pass@1 0.9817 (161/164); GSM8K 0.9780 (1,290/1,319) ‡ |
+| Vision | image and video requests pass ‡ |
+| n-gram table from SSD | cold vs warm page cache: time to first token ×1.006–1.044, step ×1.00–1.02 ‡ |
 
 ## Using it
 
@@ -140,11 +145,9 @@ restart, no rebuild.
 | `VLLM_QWEN4_QSA_TOPK_CANONICAL` | canonical sparse-attention top-k ties, so a request repeats at exact score ties |
 | `VLLM_CUSTOM_ALLREDUCE_FLAGS` | flags-in-data two-shot custom all-reduce for the TP2 all-reduces |
 | `VLLM_EXL3_PLE_OVERLAP` | n-gram row reads overlap the previous decoder layer |
+| `VLLM_EXL3_MOE_V2` | EXL3 MoE kernel v2 for MoE calls of 1 to 64 rows (decode and short prefills) |
+| `VLLM_EXL3_DENSE_SPLITK` | EXL3 split-K dense kernel for the small-row decode launches |
 | `VLLM_CUSTOM_ALLREDUCE_PCIE_P2P` | custom all-reduce over PCIe peer access (only after the P2P check passes) |
-
-TBD-at-release: the EXL3 kernel port switches (`VLLM_EXL3_MOE_V2`,
-`VLLM_EXL3_DENSE_SPLITK`) join this table, default on, only if they are
-adopted before the release.
 
 ## Checking a release
 
