@@ -11,6 +11,9 @@
       CUDA_DEVICE_ORDER) must match the dry run in both directions, as must
       every launcher input it records. The first serve.sh banner of LOG
       (default: serve.log beside EFFECTIVE) must equal the dry run's.
+      With --fork REPO, the recipe's release pin (RELEASE_VLLM_COMMIT in
+      start.sh) must be a full commit present in that fork repository; the
+      native files gate proves the validated tree equals it.
 
 The dry run uses P2P=force: validated servers run with peer access on after
 the content check, which a CPU run cannot perform.
@@ -107,11 +110,23 @@ def check(reference):
     return 0
 
 
-def check_effective(path, layout, serve_log=None):
+def release_pin():
+    match = re.search(r"^RELEASE_VLLM_COMMIT=['\"]?([^'\"\n]+)", (ROOT / "start.sh").read_text(), re.M)
+    return match[1] if match else None
+
+
+def check_effective(path, layout, serve_log=None, fork=None):
     effective = json.loads(path.read_text())
     overrides = {key: str(effective[key]) for key in ("FIRST_LIGHT",) if key in effective}
     exports, command, banner = dry_run(layout, overrides)
     failures = []
+    if fork is not None:
+        pin = release_pin()
+        if not pin or not re.fullmatch(r"[0-9a-f]{40}", pin):
+            failures.append(f"pin: release pin not set in start.sh ({pin!r})")
+        elif subprocess.run(["git", "-C", str(fork), "cat-file", "-e", pin + "^{commit}"],
+                            capture_output=True).returncode:
+            failures.append(f"pin: release pin {pin!r} is not a commit of {fork.name}")
     expected = {k: str(v) for k, v in effective.items() if ENGINE_SCOPE.match(k) and k not in ALLOWED}
     actual = {k: v for k, v in exports.items() if ENGINE_SCOPE.match(k) and k not in ALLOWED}
     for key in sorted(set(expected) | set(actual)):
@@ -154,13 +169,14 @@ def main():
     parser.add_argument("--effective", type=Path, help="full effective environment JSON")
     parser.add_argument("--layout", choices=LAYOUTS)
     parser.add_argument("--serve-log", type=Path, help="default: serve.log beside the effective JSON")
+    parser.add_argument("--fork", type=Path, help="fork repository holding the release pin")
     args = parser.parse_args()
     try:
         if args.effective:
             if args.reference or not args.layout:
                 parser.error("--effective requires --layout and cannot take reference")
-            return check_effective(args.effective, args.layout, args.serve_log)
-        if not args.reference or args.layout or args.serve_log:
+            return check_effective(args.effective, args.layout, args.serve_log, args.fork)
+        if not args.reference or args.layout or args.serve_log or args.fork:
             parser.error("supply reference or --effective with --layout")
         return check(json.loads(args.reference.read_text()))
     except (OSError, ValueError, KeyError, StopIteration) as exc:

@@ -130,5 +130,43 @@ class LauncherRefusals(unittest.TestCase):
         self.assertIn(str(ROOT / "models/Qwen3.8-Flash-Next-exl3"), result.stdout)
 
 
+
+class ForkPin(unittest.TestCase):
+    def recipe_with_pin(self, scratch, pin):
+        recipe = Path(scratch) / "recipe"
+        (recipe / "tools").mkdir(parents=True)
+        for name in ("serve.sh", "p2p_check.sh", "tools/check-env-match.py"):
+            (recipe / name).write_text((ROOT / name).read_text())
+        start = (ROOT / "start.sh").read_text().replace("{{PIN}}", pin)
+        (recipe / "start.sh").write_text(start)
+        return recipe
+
+    def fork_at(self, scratch):
+        fork = Path(scratch) / "fork"
+        subprocess.run(["git", "init", "-q", str(fork)], check=True)
+        subprocess.run(["git", "-C", str(fork), "-c", "user.name=t", "-c", "user.email=t@t",
+                        "commit", "-q", "--allow-empty", "-m", "x"], check=True)
+        return fork, subprocess.run(["git", "-C", str(fork), "rev-parse", "HEAD"], text=True,
+                                    capture_output=True, check=True).stdout.strip()
+
+    def check(self, recipe, fork):
+        effective = Path(fork).parent / "effective_env_private.json"
+        effective.write_text(json.dumps(VALIDATED))
+        return subprocess.run([sys.executable, str(recipe / "tools/check-env-match.py"), "--effective",
+                               str(effective), "--layout", "tp2", "--fork", str(fork)],
+                              text=True, capture_output=True)
+
+    def test_pin_placeholder_fails_and_matching_pin_passes(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            fork, head = self.fork_at(scratch)
+            result = self.check(ROOT, fork)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("release pin not set", result.stdout)
+            result = self.check(self.recipe_with_pin(scratch, head), fork)
+            self.assertEqual(result.returncode, 0, result.stdout)
+            result = self.check(self.recipe_with_pin(scratch + "/other", "f" * 40), fork)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("is not a commit of fork", result.stdout)
+
 if __name__ == "__main__":
     unittest.main()

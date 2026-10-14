@@ -323,3 +323,31 @@ def test_partial_native_install_remains_native_without_override(install):
     result = install.run(RUNTIME='')
     assert result.returncode == 0, result.stderr
     assert len(install.calls('fork')) == 1 and install.stamp.exists()
+
+
+def exl3_builds(install):
+    path = install.root / 'exl3_builds'
+    return len(path.read_text().splitlines()) if path.exists() else 0
+
+
+def test_exl3_extension_built_before_verify_and_reused(install):
+    result = install.run()
+    assert result.returncode == 0, result.stderr
+    assert (install.root / 'fork/vllm/_exl3_C.abi3.so').read_bytes() == b'exl3'
+    assert exl3_builds(install) == 1 and 'EXL3: building the sm_80 extension' in result.stdout
+    assert result.stdout.index('EXL3: building') < result.stdout.index('install: done')
+    result = install.run()
+    assert result.returncode == 0 and 'EXL3: matching sm_80 extension already installed' in result.stdout
+    assert exl3_builds(install) == 1
+    (install.root / 'fork/vllm/_exl3_C.abi3.so').write_bytes(b'tampered')
+    assert install.run().returncode == 0 and exl3_builds(install) == 2
+
+
+def test_exl3_requires_builder_and_nvcc(install):
+    (install.root / 'toolkit/bin/nvcc').unlink()
+    result = install.run()
+    assert result.returncode != 0 and 'needs nvcc' in result.stderr
+    (install.root / 'toolkit/bin/nvcc').write_text('#!/bin/sh\n')
+    (install.root / 'fork/csrc/exl3/build_standalone.py').unlink()
+    result = install.run()
+    assert result.returncode != 0 and 'no EXL3 builder' in result.stderr
