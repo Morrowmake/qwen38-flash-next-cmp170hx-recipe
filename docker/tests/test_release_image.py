@@ -196,8 +196,7 @@ def test_launcher_dry_no_cuda(tmp_path, enabled):
     import subprocess
     import sys
     env = dict(os.environ, CUDA_VISIBLE_DEVICES="", DRY="1", VLLM_IMAGE_CACHE_SEED=enabled,
-               VLLM_GLM5_MARLIN_DECODE_CUDA="0",
-               VENV=sys.prefix, MODEL=str(tmp_path/"target"), DFLASH_MODEL=str(tmp_path/"draft"))
+               VENV=sys.prefix, MODEL=str(tmp_path/"target"))
     result = subprocess.run(["bash", str(ROOT.parent/"serve.sh")], env=env, text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
     assert ("[image-cache] disabled" if enabled == "0" else "[image-cache] enabled (dry run)") in result.stdout

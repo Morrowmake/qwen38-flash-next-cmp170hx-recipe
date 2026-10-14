@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -21,6 +22,8 @@ VALIDATED = {
 }
 BANNER = ("serve.sh: EXL3 enabled TP=2 PP=1 whole-expert-EP GPUs=2,3 PLE=default dtype=BF16 KV=BF16 "
           "indexer=BF16 vision=on MTP=mtp FIRST_LIGHT=0\n")
+# The unfilled release-pin slot, spelled so tools/set-pin.sh never rewrites it.
+PIN_SLOT = "{" * 2 + "PIN" + "}" * 2
 
 
 def run(*args):
@@ -147,11 +150,14 @@ class LauncherRefusals(unittest.TestCase):
 
 class ForkPin(unittest.TestCase):
     def recipe_with_pin(self, scratch, pin):
+        """A copy of the launcher files whose start.sh carries pin instead of the current release pin."""
         recipe = Path(scratch) / "recipe"
         (recipe / "tools").mkdir(parents=True)
         for name in ("serve.sh", "p2p_check.sh", "tools/check-env-match.py"):
             (recipe / name).write_text((ROOT / name).read_text())
-        start = (ROOT / "start.sh").read_text().replace("{{PIN}}", pin)
+        start = (ROOT / "start.sh").read_text()
+        current = re.search(r"^RELEASE_VLLM_COMMIT=(\S+)$", start, re.M).group(1)
+        start = start.replace("RELEASE_VLLM_COMMIT=" + current, "RELEASE_VLLM_COMMIT=" + pin)
         (recipe / "start.sh").write_text(start)
         return recipe
 
@@ -173,7 +179,7 @@ class ForkPin(unittest.TestCase):
     def test_pin_placeholder_fails_and_matching_pin_passes(self):
         with tempfile.TemporaryDirectory() as scratch:
             fork, head = self.fork_at(scratch)
-            result = self.check(ROOT, fork)
+            result = self.check(self.recipe_with_pin(scratch + "/slot", PIN_SLOT), fork)
             self.assertEqual(result.returncode, 1)
             self.assertIn("release pin not set", result.stdout)
             result = self.check(self.recipe_with_pin(scratch, head), fork)
