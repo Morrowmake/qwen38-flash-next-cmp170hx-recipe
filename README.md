@@ -75,7 +75,6 @@ launches (see Engine switches).
 | 262,144-token context | 262,143 prompt + 1 output token accepted; one more token refused (HTTP 400) ‡ |
 | Quality | HumanEval pass@1 0.9817 (161/164); GSM8K 0.9780 (1,290/1,319) ‡ |
 | Vision | image and video requests pass ‡ |
-| n-gram table from SSD | cold vs warm page cache: time to first token ×1.006–1.044, step ×1.00–1.02 ‡ |
 
 ## Using it
 
