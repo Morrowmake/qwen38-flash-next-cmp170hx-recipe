@@ -161,3 +161,22 @@ as_serving_user false; echo returned
 def test_rejects_non_numeric_override():
     run = prepare_functions('serving_ids', HOST_UID='someone', HOST_GID='')
     assert run.returncode == 1 and 'numeric' in run.stderr
+
+
+def test_dry_start_needs_no_engine_on_the_host(tmp_path):
+    """The DRY launch shows serve.sh's whole result without the image's venv."""
+    import shutil
+    checkout = tmp_path / 'checkout'
+    shutil.copytree(ROOT, checkout, ignore=shutil.ignore_patterns(
+        '.git', '.env', 'models', 'cache', 'logs', 'venv', 'vllm-src', '__pycache__'))
+    shim = tmp_path / 'shim'
+    shim.mkdir()
+    for name in ('nvidia-smi', 'docker'):
+        (shim / name).write_text('#!/bin/sh\nexit 1\n')
+        (shim / name).chmod(0o755)
+    run = subprocess.run(['bash', str(checkout / 'start.sh')], capture_output=True, text=True,
+                         env={'HOME': str(tmp_path), 'PATH': f'{shim}:/usr/bin:/bin',
+                              'DRY': '1', 'NEED_DISK_GB': '0'}, timeout=60)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert 'No such file' not in run.stdout + run.stderr
+    assert 'serve.sh: DRY=1, command:' in run.stdout
