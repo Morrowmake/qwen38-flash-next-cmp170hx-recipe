@@ -1,8 +1,8 @@
 # Container image
-The engine in a container: the way this recipe runs by default. `./start.sh`
-pulls the image, starts it and manages it for you (see the
+The engine in a container: the only way this recipe runs. `./start.sh` and
+`docker compose up` pull the image, start it and manage it for you (see the
 [README](../README.md)); this page describes the image, how to build it, and
-how to run it by hand without `./start.sh`.
+how to run it by hand with `docker run`.
 ## What the image contains
 - **Engine:** the [vLLM fork](https://github.com/Morrowmake/vllm-cmp170hx)
   pinned at `{{PIN}}` (filled in at release). The builders install the fork and
@@ -93,12 +93,14 @@ docker run -d --name qwen38-flash-next --user "$(id -u):$(id -g)" --workdir /cac
 docker logs -f qwen38-flash-next    # wait for "Application startup complete"
 curl http://127.0.0.1:8000/health
 ```
-The same launch as a Compose file is [`docker-compose.yml`](../docker-compose.yml).
+The same launch, with the checkpoint download and storage ownership handled
+for you, is [`docker-compose.yml`](../docker-compose.yml).
 
 **Cards.** [`container.env`](container.env) sets `CUDA_VISIBLE_DEVICES=0,1`
 (nvidia-smi numbers; the container sees every card). Any setting from
 [`.env.example`](../.env.example) or [`.env.advanced.example`](../.env.advanced.example)
-added to `container.env` becomes the same flag as a native start.
+added to `container.env` becomes the same flag as `./start.sh`'s container
+gets, so the server is the same either way.
 
 The server listens on every interface inside the container;
 `-p 127.0.0.1:8000:8000` keeps it local, as `./start.sh` does. It has **no API

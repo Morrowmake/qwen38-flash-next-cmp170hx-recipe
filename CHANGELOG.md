@@ -22,5 +22,22 @@ First release: Qwen3.8-Flash-Next (EXL3 5.05 bpw) on two CMP 170HX cards.
   run. Before, a step could report healthy requests as failed (seen with
   prompt log-probabilities on chunked prompts) or miss a real n-gram read
   failure.
+- **One command from a fresh clone: `./start.sh` or `docker compose up`.**
+  Compose runs a `prepare` service first: it makes `./cache` and the model
+  directory writable by the serving user and downloads the checkpoint; then
+  the server starts as the owner of the checkout, whatever its UID, never as
+  root. No `HOST_UID`/`HOST_GID`, `mkdir`, `./install.sh` or `./download.sh`
+  step is needed (`HOST_UID` and `HOST_GID` still override the user), and
+  `docker compose ps` shows the server healthy once `/health` answers.
+- **The recipe ships the container runtime only**: there is no native mode
+  (no `RUNTIME`, no venv build); `./start.sh` and Compose run the same pinned
+  image.
+- **Rolling back to an earlier release is not a supported path.**
+  `./start.sh update` moves forward only. Older releases are git tags; their
+  images may be retired.
+- **An interrupted checkpoint download is resumed** instead of being taken as
+  complete: a checkpoint counts as present only with its config, every shard
+  its index names and no partial download left behind; `./start.sh` and
+  Compose use the same check.
 - `.env` settings: all new; nothing to delete.
 - Measured numbers: see the README (filled from this release's gate legs).

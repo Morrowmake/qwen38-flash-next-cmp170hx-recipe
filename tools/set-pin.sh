@@ -22,7 +22,6 @@ patterns = {
     "start.sh": r"^RELEASE_VLLM_COMMIT=[\"']?([^\"'\n]+)",
     "docker/build.sh": r"^RELEASE_VLLM_COMMIT=[\"']?([^\"'\n]+)",
     "docker/Dockerfile": r"^ARG VLLM_COMMIT=(.+)$",
-    ".env.advanced.example": r"^# VLLM_COMMIT=(.+)$",
 }
 texts = {}
 for name, pattern in patterns.items():

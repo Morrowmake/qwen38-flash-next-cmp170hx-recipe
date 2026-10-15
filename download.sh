@@ -7,7 +7,7 @@
 #
 # Put MODELS_DIR on an SSD: the server reads PLE rows from that file while it
 # decodes. Budget ~120 GiB of free disk. Uses the hf client from the engine
-# image (or the venv, RUNTIME=native), so run ./install.sh first.
+# image, so run ./install.sh first. An interrupted download resumes.
 # Runs the preflight first, so it stops before downloading if a card reports
 # under 60 GiB or the disk is too small.
 #

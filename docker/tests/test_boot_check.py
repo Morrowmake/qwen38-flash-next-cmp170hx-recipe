@@ -135,8 +135,7 @@ def test_invalid_metrics(value):
         boot.parse_metrics(data, 'fixture')
 
 
-@pytest.mark.parametrize('runtime', ['native', 'container'])
-def test_start_owns_check_once_and_stops_on_failure(tmp_path, runtime):
+def test_start_owns_check_once_and_stops_on_failure(tmp_path):
     (tmp_path/'.env.example').write_text('')
     source = (ROOT/'start.sh').read_text().rsplit('main "$@"', 1)[0]
     script = tmp_path/'start.sh'
@@ -144,10 +143,9 @@ def test_start_owns_check_once_and_stops_on_failure(tmp_path, runtime):
 SCRIPT_DIR="$TEST_RECIPE"
 CLIENT_HOST=127.0.0.1
 SERVED_MODEL_NAME=fixture
-RUNTIME="$TEST_RUNTIME"
+container_is_ours() { return 0; }
 SERVE_LOG=/dev/null
 health_ok() { return 0; }
-server_alive() { return 0; }
 served_id() { echo fixture; }
 do_stop() { echo stopped > "$STOP_RECORD"; }
 wait_ready
@@ -165,7 +163,7 @@ wait_ready
             run = subprocess.run(['bash', str(runscript)], capture_output=True, text=True,
                                  env=dict(os.environ, CUDA_VISIBLE_DEVICES='', PORT=client.base.rsplit(':', 1)[1],
                                           TEST_RECIPE=str(ROOT), TEST_LAUNCHED=launched,
-                                          STOP_RECORD=str(record), TEST_RUNTIME=runtime, BOOT_CHECK=enabled, API_KEY='fixture-key'))
+                                          STOP_RECORD=str(record), BOOT_CHECK=enabled, API_KEY='fixture-key'))
             assert (run.returncode != 0) == stopped, run.stdout + run.stderr
             assert len(state['posts']) == posts
             assert record.exists() == stopped
@@ -246,8 +244,7 @@ def test_boot_log_ignores_previous_launch(tmp_path):
     boot.check_log(log, container=True, offset=len(old))
 
 
-@pytest.mark.parametrize('runtime', ['native', 'container'])
-def test_start_stops_log_failure_before_health(tmp_path, runtime):
+def test_start_stops_log_failure_before_health(tmp_path):
     (tmp_path / '.env.example').write_text('')
     log = tmp_path / 'serve.log'
     log.write_text('[p2p] P2P enabled: content check passed\n'
@@ -264,7 +261,7 @@ do_stop() { echo stopped > "$STOP_RECORD"; }
 wait_ready
 ''')
     run = subprocess.run(['bash', str(script)], capture_output=True, text=True,
-                         env=dict(os.environ, CUDA_VISIBLE_DEVICES='', RUNTIME=runtime,
+                         env=dict(os.environ, CUDA_VISIBLE_DEVICES='',
                                   TEST_RECIPE=str(ROOT), TEST_LOG=str(log), BOOT_CHECK='1',
                                   HEALTH_RECORD=str(tmp_path / 'health'), STOP_RECORD=str(tmp_path / 'stop')))
     assert run.returncode == 1 and '[boot-check] FAIL' in run.stdout + run.stderr

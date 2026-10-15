@@ -5,17 +5,28 @@
 Serve [turboderp/Qwen3.8-Flash-Next-exl3](https://huggingface.co/turboderp/Qwen3.8-Flash-Next-exl3)
 (EXL3, 5.05 bpw) on two NVIDIA CMP 170HX cards with a patched vLLM: an
 OpenAI-compatible API with the full 262,144-token context, native MTP
-speculative decoding, vision, reasoning and tool calls. One command installs,
-downloads and starts it:
+speculative decoding, vision, reasoning and tool calls. One command from a
+fresh clone, after the [one-time host setup](#one-time-host-setup):
 
 ```bash
 git clone https://github.com/Morrowmake/qwen38-flash-next-cmp170hx-recipe
 cd qwen38-flash-next-cmp170hx-recipe
-./start.sh
+./start.sh          # pull the engine image, fetch the model, start, wait for /health
 ```
 
-The engine runs in a container pinned by digest (`RUNTIME=container`, the
-default) or from a venv built on your machine (`RUNTIME=native`).
+`./start.sh` skips anything already done, so running it twice is safe; an
+interrupted download resumes. The engine runs in a container pinned by digest.
+
+**Prefer Docker Compose?** The same container, also one command from a fresh
+clone:
+
+```bash
+docker compose up              # or in the background: docker compose up -d
+```
+
+It downloads the checkpoint, then starts the server as the owner of the
+checkout; `docker compose ps` shows it healthy once `/health` answers. Use one
+or the other, not both.
 
 > **Which setups this release is for.** Two cards in tensor-parallel 2,
 > measured on **PCIe x16 links** (cards with the x16 capacitor
@@ -23,6 +34,20 @@ default) or from a venv built on your machine (`RUNTIME=native`).
 > cards; performance on cards limited to x4 links has not been measured.
 > `./start.sh` reports each card's link width and warns if one is narrower
 > than x16.
+
+## One-time host setup
+
+- **2× NVIDIA CMP 170HX, each exposing 64 GiB**; PCIe x16 links
+- Linux with NVIDIA driver **580 or newer**
+- Docker with the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html),
+  usable by your user: `docker run --rm --gpus all nvidia/cuda:13.3.1-base-ubuntu24.04 nvidia-smi`
+  lists the cards
+- optional: a P2P-capable driver build for verified peer-to-peer; without it
+  the server runs with P2P disabled (`P2P=auto` checks at every start)
+- for `./start.sh`: `git`, `curl`, `flock`, `setsid`, Python 3 for the boot
+  check, and `jq` for the smoke test
+- about 120 GiB of free disk **on an SSD** for the checkpoint, plus the engine
+  image and the kernel compile caches
 
 ## Hardware
 
@@ -32,7 +57,7 @@ default) or from a venv built on your machine (`RUNTIME=native`).
 | Links | PCIe Gen2 x16 per card; peer-to-peer verified at start |
 | Driver | 580 or newer (measured on 610.57.04) |
 | Disk | ~120 GiB free **on an SSD** for the checkpoint (115 GiB, of which the n-gram table is 37 GiB) |
-| Software | Docker with the NVIDIA Container Toolkit, or `uv`, Python 3.12, CUDA 13.3 toolkit and a C++ compiler (native) |
+| Software | Docker with the NVIDIA Container Toolkit |
 
 Every weight sits on the two GPUs except the compressed n-gram (PLE) table,
 which the server reads from the checkpoint file on the SSD while it decodes.
@@ -86,19 +111,20 @@ startup check. Commands:
 | Command | What it does |
 |---|---|
 | `./start.sh` | preflight, install, download, launch (default) |
-| `./start.sh install` | the engine only (image, or venv and fork) |
+| `./start.sh install` | the engine image only |
 | `./start.sh download` | the checkpoint only |
 | `./start.sh stop` / `restart` | stop or restart the server this checkout started |
 | `./start.sh status` | server, `/health`, KV cache line |
 | `./start.sh logs` | follow `logs/serve.log` |
-| `./start.sh update` | `git pull`, reinstall if the pin moved, restart |
+| `./start.sh update` | `git pull`, pull the image if the pin moved, restart |
 | `./start.sh smoke` | one chat request and one tool call |
 | `DRY=1 ./start.sh` | print what would happen, change nothing |
 
 The API listens on `127.0.0.1:8000` as model `qwen3.8-flash-next`, with no API
 key. Examples: [`examples/`](examples/). Docker Compose:
-[`docker-compose.yml`](docker-compose.yml). The image by hand and how to build
-it: [`docker/README.md`](docker/README.md).
+[`docker-compose.yml`](docker-compose.yml) (`up`, `up -d`, `ps`, `logs -f`,
+`down`). The image by hand and how to build it:
+[`docker/README.md`](docker/README.md).
 
 ## Options
 
@@ -114,7 +140,6 @@ run); a prefix assignment beats `.env` for one run
 | `API_KEY` | unset | require `Authorization: Bearer <key>` |
 | `SERVED_MODEL_NAME` | `qwen3.8-flash-next` | model id clients send |
 | `MODELS_DIR` | `./models` | checkpoint location; must be on an SSD |
-| `RUNTIME` | `container` | `container` or `native` |
 | `P2P` | `auto` | `auto` (content-checked), `off`, `force` |
 | `SPEC_MODE` | `mtp` | `mtp` or `none` (no speculation; set `BOOT_CHECK=0`, the startup check expects drafting) |
 | `SPEC_N` | `3` | MTP draft tokens per step |
@@ -126,11 +151,10 @@ run); a prefix assignment beats `.env` for one run
 | `EXTRA_ARGS` | empty | extra vLLM arguments; options that change the deployment are refused |
 | `BOOT_CHECK` | `1` | two-request startup check after `/health` |
 | `READY_TIMEOUT` / `STOP_TIMEOUT` | `1800` / `120` | seconds |
-| `IMAGE` / `VLLM_COMMIT` | this release | engine pin; set an older one to roll back |
 
 The context (262,144) and GPU memory fraction (0.95) are fixed: `serve.sh`
 refuses other values. `FIRST_LIGHT=1` is a 32K/eager/no-MTP diagnostic, not a
-serving mode. Install, path and preflight settings are in
+serving mode. Path and preflight settings are in
 [`.env.advanced.example`](.env.advanced.example).
 
 ### Engine switches
@@ -146,6 +170,13 @@ restart, no rebuild.
 | `VLLM_EXL3_MOE_V2` | EXL3 MoE kernel v2 for MoE calls of 1 to 64 rows (decode and short prefills) |
 | `VLLM_EXL3_DENSE_SPLITK` | EXL3 split-K dense kernel for the small-row decode launches |
 | `VLLM_CUSTOM_ALLREDUCE_PCIE_P2P` | custom all-reduce over PCIe peer access (only after the P2P check passes) |
+
+## Update
+
+- `./start.sh update` pulls the new release and engine image and restarts; your
+  `.env` is preserved.
+- With Compose: `git pull`, then `docker compose up -d`.
+- Older releases are git tags; their images may be retired.
 
 ## Checking a release
 

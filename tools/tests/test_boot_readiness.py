@@ -96,9 +96,8 @@ def test_without_startup_mode_503_is_fatal(client):
     assert client.opener.open.call_count == 1
 
 
-@pytest.mark.parametrize('runtime', ['native', 'container'])
 @pytest.mark.parametrize('failure', ['transport', '503'])
-def test_slow_frontend_handoff(runtime, failure, tmp_path):
+def test_slow_frontend_handoff(failure, tmp_path):
     """Run the actual owner and boot-check CLI against a warming HTTP frontend."""
     state = {'ready_at': None, 'errors': 0, 'posts': 0, 'counts': [0, 0, 0, 0]}
 
@@ -149,13 +148,12 @@ def test_slow_frontend_handoff(runtime, failure, tmp_path):
     log = tmp_path / 'serve.log'
     log.touch()
     script = '''set -euo pipefail
-SCRIPT_DIR="$1"; PORT="$2"; PID="$3"; RUNTIME="$4"; SERVE_LOG="$5"; STOPFILE="$6"
+SCRIPT_DIR="$1"; PORT="$2"; PID="$3"; SERVE_LOG="$4"; STOPFILE="$5"
 CLIENT_HOST=127.0.0.1; HOST=127.0.0.1; SERVED_MODEL_NAME=test
-LAUNCHED=1; BOOT_CHECK=1; READY_TIMEOUT=8; PIDFILE=/dev/null; DRY=""
+LAUNCHED=1; BOOT_CHECK=1; READY_TIMEOUT=8; DRY=""
 log() { echo "$*"; }; warn() { echo "$*" >&2; }
-read_pid() { echo "$PID"; }
+container_is_ours() { kill -0 "$PID" 2>/dev/null; }
 health_ok() { curl -fsS -m 1 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; }
-server_alive() { kill -0 "$PID" 2>/dev/null; }
 do_stop() { echo stopped >> "$STOPFILE"; }
 kv_line() { :; }; served_id() { echo test; }
 ''' + function + '\nwait_ready\n'
@@ -163,7 +161,7 @@ kv_line() { :; }; served_id() { echo test; }
     try:
         result = subprocess.run(
             ['bash', '-c', script, 'owner', str(ROOT), str(server.server_port),
-             str(os.getpid()), runtime, str(log), str(stop)],
+             str(os.getpid()), str(log), str(stop)],
             env={**os.environ, 'API_KEY': 'readiness-test'},
             capture_output=True, text=True, timeout=15)
         assert result.returncode == 0, result.stdout + result.stderr

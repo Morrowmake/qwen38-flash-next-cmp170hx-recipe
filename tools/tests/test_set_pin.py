@@ -14,7 +14,7 @@ SLOT = chr(123) * 2 + "PIN" + chr(125) * 2
 def scratch(tmp_path):
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     for name in ["start.sh", "docker/build.sh", "docker/Dockerfile",
-                 ".env.advanced.example", "README.md", "CHANGELOG.md", "tools/set-pin.sh"]:
+                 "README.md", "CHANGELOG.md", "tools/set-pin.sh"]:
         dest = tmp_path / name
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / name, dest)
@@ -44,7 +44,7 @@ def test_moves_every_reference_and_preserves_history(scratch):
         assert result.returncode == 0, result.stderr
         pin = pin.lower()
         for name in ["start.sh", "docker/build.sh", "docker/Dockerfile",
-                     ".env.advanced.example", "README.md", "extra.md"]:
+                     "README.md", "extra.md"]:
             text = (scratch / name).read_text()
             assert SLOT not in text and pin in text
             assert name + ":" in result.stdout
