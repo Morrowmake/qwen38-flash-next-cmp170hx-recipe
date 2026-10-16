@@ -96,10 +96,21 @@ def inside(model, draft=None):
                              enable_expert_parallel=True,
                              gpu_memory_utilization=0.95,
                              speculative_config=dict(method="mtp", num_speculative_tokens=3))
-    model_config = engine.create_model_config()
-    assert model_config.hf_config.architectures == json.loads(
-        (model / "config.json").read_text())["architectures"]
-    checks.append("model_config")
+    # EXL3 checks for the CUDA platform while the model config is built; on
+    # CPU that check is the boundary (pydantic reports it as a ValueError).
+    exl3_boundary = "EXL3 execution requires the NVIDIA CUDA platform"
+    boundary = None
+    try:
+        model_config = engine.create_model_config()
+    except ValueError as error:
+        if exl3_boundary not in str(error):
+            raise
+        boundary = exl3_boundary
+        print("CPU_BOUNDARY", boundary, flush=True)
+    else:
+        assert model_config.hf_config.architectures == json.loads(
+            (model / "config.json").read_text())["architectures"]
+        checks.append("model_config")
     # Never initialize an engine or bind a server port in the CPU gate.
     try:
         parser = FlexibleArgumentParser()
@@ -114,13 +125,14 @@ def inside(model, draft=None):
         args.model = args.model_tag
         ServeSubcommand().validate(args)
         checks.append("serve_arguments")
-        AsyncEngineArgs.from_cli_args(args).create_engine_config()
+        if boundary is None:
+            AsyncEngineArgs.from_cli_args(args).create_engine_config()
     except RuntimeError as error:
         if not str(error).startswith("Failed to infer device type,"):
             raise
-        boundary = str(error)
+        boundary = boundary + "; " + str(error) if boundary else str(error)
         print("CPU_BOUNDARY", boundary, flush=True)
-    else:
+    if boundary is None:
         boundary = "engine configuration completed; engine not started"
     checks.append("engine_config_boundary")
     record = dict(passed=True, checks=checks, boundary=boundary)
