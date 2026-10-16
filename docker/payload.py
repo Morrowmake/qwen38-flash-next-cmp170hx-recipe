@@ -11,6 +11,9 @@ PARTS = ("python", "dependencies", "native", "engine")
 
 def normalized(name):
     return re.sub(r"[-_.]+", "-", name).lower()
+# Distributions built from the engine source tree; they ship in the engine
+# layer and are versioned by the engine commit, not by the dependency lock.
+ENGINE_DISTRIBUTIONS = ("vllm", "vllm-sm80-plugin")
 
 def check_lock(opt, constraints):
     expected = {}
@@ -22,7 +25,7 @@ def check_lock(opt, constraints):
     for path in opt.glob("venv/lib/python*/site-packages/*.dist-info/METADATA"):
         metadata = Parser().parsestr(path.read_text())
         name = normalized(metadata["Name"])
-        if name != "vllm":
+        if name not in ENGINE_DISTRIBUTIONS:
             actual[name] = metadata["Version"]
     if actual != expected:
         differences = sorted(n for n in actual.keys() | expected.keys()
@@ -37,7 +40,8 @@ def partition(path):
         return "native" if path.suffix == ".so" else "engine"
     if parts[0] != "venv":
         raise ValueError("Unexpected runtime payload root")
-    if (any(p.startswith(("vllm-", "__editable__.vllm", "__editable___vllm")) for p in parts)
+    if (any(p.startswith(("vllm-", "vllm_sm80_plugin-", "__editable__.vllm", "__editable___vllm"))
+            for p in parts)
             or path.name in ("vllm", ".native-manifest.json")):
         return "engine"
     return "dependencies"

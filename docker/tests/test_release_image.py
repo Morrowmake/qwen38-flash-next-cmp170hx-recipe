@@ -18,6 +18,7 @@ PIN = "a" * 40
 def test_partition():
     cases = {"python/bin/python": "python", "venv/lib/site-packages/torch/x.py": "dependencies",
              "venv/lib/site-packages/vllm-1.dist-info/METADATA": "engine",
+             "venv/lib/site-packages/vllm_sm80_plugin-0.1.0.dist-info/entry_points.txt": "engine",
              "venv/lib/site-packages/__editable__.vllm-1.pth": "engine",
              "venv/lib/site-packages/__editable___vllm_1_finder.py": "engine",
              "venv/.native-manifest.json": "engine", "venv/bin/vllm": "engine",
@@ -38,6 +39,16 @@ def test_lock(tmp_path, version):
     else:
         with pytest.raises(ValueError, match="lock mismatch"):
             payload.check_lock(opt, constraints)
+
+def test_lock_ignores_engine_distributions(tmp_path):
+    opt = tmp_path / "opt"
+    for name, dist in (("vllm", "vllm-1"), ("vllm-sm80-plugin", "vllm_sm80_plugin-0.1.0")):
+        path = opt / "venv/lib/python3.12/site-packages" / (dist + ".dist-info")
+        path.mkdir(parents=True)
+        (path / "METADATA").write_text("Name: " + name + "\nVersion: 1")
+    constraints = tmp_path / "CONSTRAINTS"
+    constraints.write_text("")
+    payload.check_lock(opt, constraints)
 
 def identity(tmp_path):
     lock = tmp_path / "lock"

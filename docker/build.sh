@@ -96,6 +96,8 @@ build_tree() {
     VLLM_BUILD_AMPERE_MARLIN=0 VLLM_USE_PRECOMPILED=1 VLLM_PRECOMPILED_WHEEL_COMMIT="$VLLM_WHEEL_COMMIT" \
         VLLM_PRECOMPILED_WHEEL_VARIANT=cu130 CUDA_HOME="$BUILD_CUDA_HOME" \
         "$UV" pip install --no-deps -e "$STAGE/opt/vllm-src"
+    log "the fork's plugin entry points (plugins/sm80; vLLM refuses to start without them)"
+    "$UV" pip install --no-deps "$STAGE/opt/vllm-src/plugins/sm80"
     "$UV" pip freeze > "$STAGE/opt/venv/requirements.lock.txt"
     python3 - "$STAGE/opt" "$CONSTRAINTS" "$HERE" <<'LOCK'
 import sys
@@ -124,6 +126,14 @@ for mod in ("triton", "tilelang", "flashinfer", "humming"):
 from vllm.sm80.attention import triton_mla_sparse                      # noqa: F401
 from vllm.sm80.kernels.attention import triton_mqa_logits, triton_e4m3  # noqa: F401
 from vllm.sm80.distributed import host_shm_all_reduce                  # noqa: F401
+import vllm.plugins
+vllm.plugins.load_general_plugins()
+from vllm.sm80 import plugin
+from vllm.sm80.guard import check_plugin_loaded
+if not plugin.is_registered():
+    raise SystemExit("the fork's plugin sm80 is not registered")
+check_plugin_loaded()
+print("sm80 plugin  registered")
 import json, os
 artefacts = json.load(open(os.environ["NATIVE_MANIFEST_SHIPPED"]))["artefacts"]
 if "vllm/_ampere_marlin_C.abi3.so" in artefacts:

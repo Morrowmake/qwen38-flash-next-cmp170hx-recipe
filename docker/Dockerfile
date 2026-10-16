@@ -76,6 +76,7 @@ RUN git clone --no-local --no-tags --single-branch --branch "${VLLM_BRANCH}" "${
 RUN VLLM_BUILD_AMPERE_MARLIN=0 VLLM_USE_PRECOMPILED=1 VLLM_PRECOMPILED_WHEEL_COMMIT="${VLLM_WHEEL_COMMIT}" \
     VLLM_PRECOMPILED_WHEEL_VARIANT=cu130 \
     uv pip install --no-deps -e /opt/vllm-src \
+ && uv pip install --no-deps /opt/vllm-src/plugins/sm80 \
  && uv pip freeze > /opt/venv/requirements.lock.txt
 COPY docker/runtime_tree.py docker/payload.py docker/cache_seed.py docker/rootfs_smoke.py docker/bwrap_targets.py docker/p2p_build.py docker/native_build.py docker/THIRD_PARTY_NOTICES p2p_probe.cu LICENSE /tmp/
 COPY docker/native/ /tmp/native/
@@ -85,7 +86,7 @@ RUN /opt/venv/bin/python /tmp/native_build.py pack --native /tmp/native --venv-c
  && rm -rf /tmp/native
 # Optional Marlin is checked only when the pinned manifest ships it.
 RUN CUDA_VISIBLE_DEVICES= /opt/venv/bin/python -c "import json; shipped = 'vllm/_ampere_marlin_C.abi3.so' in json.load(open('/opt/venv/.native-manifest.json'))['artefacts']; from vllm.sm80.kernels.marlin_moe.extension import require_extension; require_extension() if shipped else print('optional Marlin: not shipped')"
-RUN CUDA_VISIBLE_DEVICES= /opt/venv/bin/python -c "import torch, vllm, vllm._C_stable_libtorch, vllm._moe_C_stable_libtorch, vllm._custom_ops, triton, tilelang, flashinfer, humming; from vllm.sm80.attention import triton_mla_sparse; from vllm.sm80.kernels.attention import triton_mqa_logits, triton_e4m3; from vllm.sm80.distributed import host_shm_all_reduce; print(vllm.__version__, torch.__version__, torch.version.cuda)" \
+RUN CUDA_VISIBLE_DEVICES= /opt/venv/bin/python -c "import torch, vllm, vllm._C_stable_libtorch, vllm._moe_C_stable_libtorch, vllm._custom_ops, triton, tilelang, flashinfer, humming; from vllm.sm80.attention import triton_mla_sparse; from vllm.sm80.kernels.attention import triton_mqa_logits, triton_e4m3; from vllm.sm80.distributed import host_shm_all_reduce; import vllm.plugins; vllm.plugins.load_general_plugins(); from vllm.sm80 import plugin; from vllm.sm80.guard import check_plugin_loaded; assert plugin.is_registered(), 'sm80 plugin not registered'; check_plugin_loaded(); print(vllm.__version__, torch.__version__, torch.version.cuda)" \
  && find /opt/python /opt/venv /opt/vllm-src -name __pycache__ -type d -prune -exec rm -rf {} + \
  && /opt/venv/bin/python /tmp/runtime_tree.py finalize /opt "${VLLM_COMMIT}" \
  && /opt/venv/bin/python /tmp/runtime_tree.py check /opt "${VLLM_COMMIT}"
