@@ -1,12 +1,19 @@
 # Qwen3.8-Flash-Next on 2× CMP 170HX
 
-[![engine](https://img.shields.io/badge/engine-vllm--cmp170hx%2018305948acba3f4c4d912cdd56f2202d2ebd94e8-blue)](https://github.com/Morrowmake/vllm-cmp170hx/tree/18305948acba3f4c4d912cdd56f2202d2ebd94e8)
+[![engine](https://img.shields.io/badge/engine-vllm--cmp170hx%2018305948ac-blue)](https://github.com/Morrowmake/vllm-cmp170hx/tree/18305948acba3f4c4d912cdd56f2202d2ebd94e8)
+![release](https://img.shields.io/badge/release-1.0.0-2ea44f)
+
+**Qwen3.8-Flash-Next on two CMP 170HX cards with the full 262,144-token
+context: 152.8 tok/s for one user, 674.7 tok/s across eight, 2,651 tok/s cold
+prefill and a 1,044,325-token KV pool. EXL3 5.05 bpw weights, BF16 KV cache,
+every weight on the GPUs except the n-gram table.**
 
 Serve [turboderp/Qwen3.8-Flash-Next-exl3](https://huggingface.co/turboderp/Qwen3.8-Flash-Next-exl3)
 (EXL3, 5.05 bpw) on two NVIDIA CMP 170HX cards with a patched vLLM: an
 OpenAI-compatible API with the full 262,144-token context, native MTP
-speculative decoding, vision, reasoning and tool calls. One command from a
-fresh clone, after the [one-time host setup](#one-time-host-setup):
+speculative decoding, vision, reasoning and tool calls. The engine runs only
+in a container pinned by digest. One command from a fresh clone, after the
+[one-time host setup](#one-time-host-setup):
 
 ```bash
 git clone https://github.com/Morrowmake/qwen38-flash-next-cmp170hx-recipe
@@ -15,7 +22,8 @@ cd qwen38-flash-next-cmp170hx-recipe
 ```
 
 `./start.sh` skips anything already done, so running it twice is safe; an
-interrupted download resumes. The engine runs in a container pinned by digest.
+interrupted download resumes. The checkpoint is downloaded at the exact
+Hugging Face revision this release was validated with.
 
 **Prefer Docker Compose?** The same container, also one command from a fresh
 clone:
@@ -25,8 +33,9 @@ docker compose up              # or in the background: docker compose up -d
 ```
 
 It downloads the checkpoint, then starts the server as the owner of the
-checkout; `docker compose ps` shows it healthy once `/health` answers. Use one
-or the other, not both.
+checkout; `docker compose ps` shows it healthy once `/health` answers. Compose
+restarts a crashed server up to 3 times; `./start.sh` does not (run
+`./start.sh restart`). Use one or the other, not both.
 
 > **Which setups this release is for.** Two cards in tensor-parallel 2,
 > measured on **PCIe x16 links** (cards with the x16 capacitor
@@ -68,39 +77,56 @@ the cards with `CUDA_VISIBLE_DEVICES` (two distinct nvidia-smi numbers).
 
 | | |
 |---|---|
-| Engine | [Morrowmake/vllm-cmp170hx](https://github.com/Morrowmake/vllm-cmp170hx) at `18305948acba3f4c4d912cdd56f2202d2ebd94e8` |
-| Image | `ghcr.io/morrowmake/vllm-cmp170hx@sha256:5b45c4d6feafefe2eba962375b0a9a0b64fd22b9e05abb4d1966f14a32a2db79` (seed: no) |
+| Engine | [Morrowmake/vllm-cmp170hx](https://github.com/Morrowmake/vllm-cmp170hx/tree/18305948acba3f4c4d912cdd56f2202d2ebd94e8) at `18305948acba3f4c4d912cdd56f2202d2ebd94e8` |
+| Image | `ghcr.io/morrowmake/vllm-cmp170hx@sha256:5b45c4d6feafefe2eba962375b0a9a0b64fd22b9e05abb4d1966f14a32a2db79` (seed: no). Starts compile on first boot (cold), so the first start is slower; later starts reuse `./cache` |
 | Checkpoint | `turboderp/Qwen3.8-Flash-Next-exl3`, branch 5.05 bpw, revision `7cef615f7fd3681295b68848018876dfabc336c7` |
 | Precision | EXL3 5.05 bpw weights, BF16 activations, BF16 KV cache, BF16 indexer cache |
 | Speculation | native MTP, 3 draft tokens |
 
-## Speed
+## Headline numbers
 
-Measured on 2× CMP 170HX (74 SMs, 180 W, PCIe x16, driver 610.57.04) with
-P2P on and the recipe defaults: 400 greedy tokens per request, output tokens
-counted as one plus the accepted drafts per step.
+Measured 2026-10-15 on 2× CMP 170HX, 74 SMs per card, P2P on, recipe defaults,
+262,144-token context, 180 W per card and PCIe x16 links. Decode uses the
+MiaAI-Lab protocol: 400 tokens, temperature 0, thinking off; one user is the
+median of ten runs (five on each of two boots), eight users the median
+aggregate rate of three runs on one boot.
 
-**Draft: every number marked ‡ is re-measured on the release tree before
-publication and replaced by that measurement.**
+| | Tensor-parallel 2<br>+ peer-to-peer (default after verification) |
+|---|---:|
+| **1 user** · structured | **152.8** |
+| **1 user** · code | **152.6** |
+| **1 user** · prose | **118.3** |
+| **8 users, total** · structured | 588.2¹ |
+| **8 users, total** · code | 674.7 |
+| **8 users, total** · prose | 489.9 |
+| **Prompt reading** (cold prefill) | 2,651 |
+| **KV pool** (tokens) | 1,044,325 |
 
-| Users | Output tok/s (sum) | Step |
-|---|---|---|
-| 1 | 69.3 ‡ | 33.36 ms ‡ |
-| 2 | 112.5 ‡ | 43.6 ms ‡ |
-| 4 | 166.0 ‡ | 56.2 ms ‡ |
-| 8 | 242.2 ‡ | 80.6 ms ‡ |
+One user is streaming speed per request; eight users is the combined rate of
+eight simultaneous requests, in tok/s. Prompt reading is the median of nine
+cold prefills.
+
+¹ Some structured replies finish early: the median is 279 tokens per reply at
+eight users, against 400 for code and prose. The total counts the tokens
+actually produced, so shorter replies lower it; per-request decode is
+104.6 tok/s structured, 101.2 code, 67.8 prose.
+
+| Other measurements | Value |
+|---|---|
+| Quality | HumanEval 157/164; GSM8K 1,289/1,319 |
+| 262,144-token context | every boundary case passes: the full window is accepted, one token more is refused |
+| Long context | needle retrieval 9/9 at 8,192, 32,768 and 131,072 tokens; verbatim copy from deep context passes |
+| Vision | 31/31 image and video checks pass |
+| Endurance | 3,257 requests over 20 minutes of sustained multi-turn load, passed with no GPU errors |
 
 EXL3 kernels written for this card are on by default: MoE kernels for decode
 and prefill calls, a split-K dense kernel with tensor-core blocks for the small
 decode launches and a tensor-core dense kernel for prefill (see Engine
-switches).
-
-| Other measurements | Value |
-|---|---|
-| KV cache | 1,040,074 tokens ‡ |
-| 262,144-token context | 262,143 prompt + 1 output token accepted; one more token refused (HTTP 400) ‡ |
-| Quality | HumanEval pass@1 0.9817 (161/164); GSM8K 0.9780 (1,290/1,319) ‡ |
-| Vision | image and video requests pass ‡ |
+switches). With these six off (`VLLM_EXL3_DENSE_MMA`,
+`VLLM_EXL3_DENSE_PREFILL_TC`, `VLLM_EXL3_MOE_PREFILL_TC`,
+`VLLM_EXL3_PLE_NATIVE_READ`, `VLLM_THIN_GEMM`, `VLLM_THIN_GEMM_GLUON`), the
+same build takes 18 % longer per decode step for one user and 43–56 % longer
+at two to eight users.
 
 ## Using it
 
@@ -122,9 +148,10 @@ startup check. Commands:
 | `DRY=1 ./start.sh` | print what would happen, change nothing |
 
 The API listens on `127.0.0.1:8000` as model `qwen3.8-flash-next`, with no API
-key. Examples: [`examples/`](examples/). Docker Compose:
-[`docker-compose.yml`](docker-compose.yml) (`up`, `up -d`, `ps`, `logs -f`,
-`down`). The image by hand and how to build it:
+key. Reasoning comes back in the message's `reasoning` field and the answer in
+`content`; size `max_tokens` for both. Examples: [`examples/`](examples/).
+Docker Compose: [`docker-compose.yml`](docker-compose.yml) (`up`, `up -d`,
+`ps`, `logs -f`, `down`). The image by hand and how to build it:
 [`docker/README.md`](docker/README.md).
 
 ## Options
@@ -197,7 +224,8 @@ validation JSON; `tools/check-release.py` checks commit identity and wording;
 ## Licence
 
 The recipe is MIT ([`LICENSE`](LICENSE)). The engine is Apache-2.0; the
-checkpoint has its own licence (see its model card).
+checkpoint has its own licence (see its model card). The benchmark prompts
+come from MiaAI-Lab's repository, used as data with attribution.
 
 ## Credits
 
