@@ -169,6 +169,43 @@ wait_ready
             assert record.exists() == stopped
 
 
+def test_one_failed_liveness_query_does_not_stop_the_launch(tmp_path):
+    # A single failed ownership check (docker returned nothing) while the
+    # server loads is retried; two in a row mean the server is gone.
+    (tmp_path/'.env.example').write_text('')
+    source = (ROOT/'start.sh').read_text().rsplit('main "$@"', 1)[0]
+    queries = tmp_path/'queries'
+    record = tmp_path/'stop'
+    for failures, healthy in [(1, True), (2, False)]:
+        queries.write_text('')
+        record.unlink(missing_ok=True)
+        script = tmp_path/'run.sh'
+        script.write_text(source + '''
+SCRIPT_DIR="$TEST_RECIPE"
+SERVE_LOG=/dev/null
+sleep() { :; }
+container_is_ours() {
+    echo q >>"$QUERIES"
+    [ "$(wc -l <"$QUERIES")" -gt "$FAILURES" ]
+}
+health_ok() { [ "$(wc -l <"$QUERIES")" -ge 3 ]; }
+served_id() { echo fixture; }
+do_stop() { echo stopped >"$STOP_RECORD"; }
+LAUNCHED=1
+BOOT_CHECK=0
+wait_ready
+''')
+        run = subprocess.run(['bash', str(script)], capture_output=True, text=True, timeout=60,
+                             env=dict(os.environ, CUDA_VISIBLE_DEVICES='', TEST_RECIPE=str(ROOT),
+                                      QUERIES=str(queries), FAILURES=str(failures),
+                                      STOP_RECORD=str(record), READY_TIMEOUT='60'))
+        out = run.stdout + run.stderr
+        assert (run.returncode == 0) == healthy, out
+        assert ('healthy after' in out) == healthy, out
+        assert ('the server exited' in out) != healthy, out
+        assert not record.exists()
+
+
 def test_supervisor_failure_cleans_owned_child(tmp_path):
     pidfile = tmp_path/'pid'
     childcode = 'import os,time,pathlib;pathlib.Path(' + repr(str(pidfile)) + ').write_text(str(os.getpid()));time.sleep(120)'

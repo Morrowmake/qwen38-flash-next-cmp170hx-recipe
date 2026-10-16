@@ -143,8 +143,9 @@ def test_slow_frontend_handoff(failure, tmp_path):
     server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    function = re.search(r'^wait_ready\(\) \{\n.*?^\}',
-                         (ROOT / 'start.sh').read_text(), re.M | re.S).group()
+    source = (ROOT / 'start.sh').read_text()
+    function = '\n'.join(re.search(r'^' + name + r'\(\) \{\n.*?^\}', source, re.M | re.S).group()
+                         for name in ('container_alive', 'wait_ready'))
     log = tmp_path / 'serve.log'
     log.touch()
     script = '''set -euo pipefail

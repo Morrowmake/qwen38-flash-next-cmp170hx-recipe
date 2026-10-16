@@ -393,6 +393,15 @@ container_is_ours() {
     [ "$(container_state "$id")" = "true $SCRIPT_DIR" ]
 }
 
+# Liveness while waiting for a launch: the container counts as gone only when
+# two ownership checks in a row fail, so one failed docker query (an empty
+# answer) does not stop a server that is still loading.
+container_alive() {
+    container_is_ours && return 0
+    sleep 2
+    container_is_ours
+}
+
 # Address:port on the host the API is published on (IPv6 in brackets).
 publish_addr() {
     case "$HOST" in
@@ -595,7 +604,7 @@ wait_ready() {
                     checker=$!
                     trap 'kill "$checker" 2>/dev/null || true; wait "$checker" 2>/dev/null || true; do_stop; exit 1' INT TERM
                     while kill -0 "$checker" 2>/dev/null; do
-                        if ! container_is_ours; then
+                        if ! container_alive; then
                             kill "$checker" 2>/dev/null || true
                             break
                         fi
@@ -619,7 +628,7 @@ wait_ready() {
             log "  API:   http://$HOST:$PORT/v1${API_KEY:+ (API key required)}"
             return 0
         fi
-        if ! container_is_ours; then
+        if ! container_alive; then
             warn "the server exited after ${elapsed}s — last 40 lines:"
             sleep 1
             tail -40 "$SERVE_LOG" >&2 || true
