@@ -28,7 +28,7 @@ VLLM_WHEEL_COMMIT="4e0681ed5654c1d8afb3c104d4381afd08529de8"
 # Upstream release tag the pin's base descends from (sets the version string).
 VERSION_TAG="v0.32.0rc0"
 # sha256 of the validated native_build.py manifest.json for RELEASE_VLLM_COMMIT.
-RELEASE_NATIVE_MANIFEST_SHA256=''
+RELEASE_NATIVE_MANIFEST_SHA256='6c261235f223916b3522cbf5e5f8857ca42bc08a009fb120e1bcb5799ebbe29b'
 NATIVE_MANIFEST_SHA256="${NATIVE_MANIFEST_SHA256:-$RELEASE_NATIVE_MANIFEST_SHA256}"
 UPSTREAM_REPO="https://github.com/vllm-project/vllm.git"
 PYTHON_VERSION="3.12"
@@ -90,7 +90,7 @@ build_tree() {
     clone_source
 
     export VIRTUAL_ENV="$STAGE/opt/venv"
-    log "locked 1.6.0 dependencies"
+    log "locked dependencies"
     "$UV" pip install "${PIP[@]}" -r "$CONSTRAINTS"
     log "vllm (upstream precompiled extensions)"
     VLLM_BUILD_AMPERE_MARLIN=0 VLLM_USE_PRECOMPILED=1 VLLM_PRECOMPILED_WHEEL_COMMIT="$VLLM_WHEEL_COMMIT" \
