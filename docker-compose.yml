@@ -55,6 +55,9 @@ services:
     command: ["mtp"]
     shm_size: 16g
     stop_grace_period: 120s
+    # Back after a crash (a non-zero exit), up to 3 times; never after
+    # docker compose stop/down.
+    restart: on-failure:3
     ports:
       - "127.0.0.1:8000:8000"
     env_file:

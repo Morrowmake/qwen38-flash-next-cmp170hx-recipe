@@ -56,6 +56,8 @@ def test_compose_runs_the_start_container_after_prepare():
     assert './cache:/cache' in prepare['volumes'] and './cache:/cache' in server['volumes']
     assert '${MODELS_DIR:-./models}:/models' in prepare['volumes']
     assert 'HOST_UID' not in str(server)
+    # The server comes back after a crash; prepare must finish, never loop.
+    assert server['restart'] == 'on-failure:3' and 'restart' not in prepare
 
 
 def test_prepare_fetches_the_start_checkpoint():

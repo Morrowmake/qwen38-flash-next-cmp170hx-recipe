@@ -35,6 +35,10 @@ First release: Qwen3.8-Flash-Next (EXL3 5.05 bpw) on two CMP 170HX cards.
 - **Rolling back to an earlier release is not a supported path.**
   `./start.sh update` moves forward only. Older releases are git tags; their
   images may be retired.
+- **Docker Compose restarts the server after a crash** (`restart: on-failure:3`):
+  a non-zero exit brings it back, up to 3 times; `docker compose stop` and
+  `down` stop it for good. `./start.sh` does not restart a crashed server; run
+  `./start.sh restart`.
 - **An interrupted checkpoint download is resumed** instead of being taken as
   complete: a checkpoint counts as present only with its config, every shard
   its index names and no partial download left behind; `./start.sh` and
