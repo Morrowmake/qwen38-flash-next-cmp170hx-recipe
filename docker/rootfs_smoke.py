@@ -55,6 +55,17 @@ def inside(model, draft=None):
     assert DRIVER_DIR in libcuda_dirs()
     ctypes.CDLL(DRIVER_DIR + "/libcuda.so.1")
     checks = ["rootfs_tmp_1777", "no_gpu_nodes", "driver_discovery", "driver_load"]
+    # The engine refuses to start unless the fork's plugin distribution
+    # registered its entry points; prove the shipped dist-info survived packaging.
+    import vllm.plugins
+    from vllm.sm80 import plugin
+    from vllm.sm80.guard import check_plugin_loaded
+    vllm.plugins.load_general_plugins()
+    if not plugin.is_registered():
+        raise RuntimeError("the fork's plugin sm80 is not registered")
+    check_plugin_loaded()
+    print("PLUGIN PASS sm80", flush=True)
+    checks.append("sm80_plugin")
     pairs = (("target", model),) + ((("draft", draft),) if draft is not None else ())
     for label, path in pairs:
         config = json.loads((path / "config.json").read_text())
