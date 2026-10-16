@@ -5,7 +5,7 @@
 First release: Qwen3.8-Flash-Next (EXL3 5.05 bpw) on two CMP 170HX cards.
 
 - Engine: Morrowmake/vllm-cmp170hx at `18305948acba3f4c4d912cdd56f2202d2ebd94e8`; image
-  `ghcr.io/morrowmake/vllm-cmp170hx@sha256:{{IMAGE_DIGEST}}` (seed: no; the first
+  `ghcr.io/morrowmake/vllm-cmp170hx@sha256:01f58834bcb116430444bf95b60ad81e8afaeedc307c1d0d84b71bcfa3e87ec1` (seed: no; the first
   start compiles its kernels).
 - Checkpoint: `turboderp/Qwen3.8-Flash-Next-exl3`, 5.05 bpw branch at revision
   `7cef615f7fd3681295b68848018876dfabc336c7`; the MTP drafter is inside it.

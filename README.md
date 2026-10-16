@@ -69,7 +69,7 @@ the cards with `CUDA_VISIBLE_DEVICES` (two distinct nvidia-smi numbers).
 | | |
 |---|---|
 | Engine | [Morrowmake/vllm-cmp170hx](https://github.com/Morrowmake/vllm-cmp170hx) at `18305948acba3f4c4d912cdd56f2202d2ebd94e8` |
-| Image | `ghcr.io/morrowmake/vllm-cmp170hx@sha256:{{IMAGE_DIGEST}}` (seed: no) |
+| Image | `ghcr.io/morrowmake/vllm-cmp170hx@sha256:01f58834bcb116430444bf95b60ad81e8afaeedc307c1d0d84b71bcfa3e87ec1` (seed: no) |
 | Checkpoint | `turboderp/Qwen3.8-Flash-Next-exl3`, branch 5.05 bpw, revision `7cef615f7fd3681295b68848018876dfabc336c7` |
 | Precision | EXL3 5.05 bpw weights, BF16 activations, BF16 KV cache, BF16 indexer cache |
 | Speculation | native MTP, 3 draft tokens |
