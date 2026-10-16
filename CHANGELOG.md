@@ -16,9 +16,15 @@ First release: Qwen3.8-Flash-Next (EXL3 5.05 bpw) on two CMP 170HX cards.
 - On by default, each with a kill switch: canonical sparse-attention top-k
   ties (`VLLM_QWEN4_QSA_TOPK_CANONICAL`), the flags-in-data TP2 all-reduce
   (`VLLM_CUSTOM_ALLREDUCE_FLAGS`), n-gram reads overlapped with the previous
-  layer (`VLLM_EXL3_PLE_OVERLAP`), the EXL3 MoE kernel v2 for MoE calls of 1
-  to 64 rows (`VLLM_EXL3_MOE_V2`) and the EXL3 split-K dense kernel for the
-  small decode launches (`VLLM_EXL3_DENSE_SPLITK`).
+  layer (`VLLM_EXL3_PLE_OVERLAP`) and read in one native call
+  (`VLLM_EXL3_PLE_NATIVE_READ`), the EXL3 MoE kernel v2 for MoE calls of 1
+  to 64 rows (`VLLM_EXL3_MOE_V2`), the EXL3 split-K dense kernel for the
+  small decode launches (`VLLM_EXL3_DENSE_SPLITK`) with tensor-core blocks
+  (`VLLM_EXL3_DENSE_MMA`), tensor-core EXL3 dense and MoE kernels for prefill
+  (`VLLM_EXL3_DENSE_PREFILL_TC`, `VLLM_EXL3_MOE_PREFILL_TC`), the thin-M BF16
+  GEMM and its Gluon kernel for the small unquantized projections
+  (`VLLM_THIN_GEMM`, `VLLM_THIN_GEMM_GLUON`) and FLA autotuning that skips
+  configs which spill local memory (`VLLM_FLA_AUTOTUNE_SKIP_SPILLING`).
 - The engine keeps the failed-token mask alive until its copy to the host has
   run. Before, a step could report healthy requests as failed (seen with
   prompt log-probabilities on chunked prompts) or miss a real n-gram read

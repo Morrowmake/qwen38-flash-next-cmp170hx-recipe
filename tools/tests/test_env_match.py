@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -14,10 +15,17 @@ VALIDATED = {
     "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:False",
     "VLLM_CUSTOM_ALLREDUCE_FLAGS": "1",
     "VLLM_CUSTOM_ALLREDUCE_PCIE_P2P": "1",
+    "VLLM_EXL3_DENSE_MMA": "1",
+    "VLLM_EXL3_DENSE_PREFILL_TC": "1",
     "VLLM_EXL3_DENSE_SPLITK": "1",
+    "VLLM_EXL3_MOE_PREFILL_TC": "1",
     "VLLM_EXL3_MOE_V2": "1",
+    "VLLM_EXL3_PLE_NATIVE_READ": "1",
     "VLLM_EXL3_PLE_OVERLAP": "1",
+    "VLLM_FLA_AUTOTUNE_SKIP_SPILLING": "1",
     "VLLM_QWEN4_QSA_TOPK_CANONICAL": "1",
+    "VLLM_THIN_GEMM": "1",
+    "VLLM_THIN_GEMM_GLUON": "1",
     "VLLM_USE_BREAKABLE_CUDAGRAPH": "1",
 }
 BANNER = ("serve.sh: EXL3 enabled TP=2 PP=1 whole-expert-EP GPUs=2,3 PLE=default dtype=BF16 KV=BF16 "
@@ -95,7 +103,9 @@ class EffectiveMode(unittest.TestCase):
         self.assertIn("VLLM_EXL3_PLE_OVERLAP: validated None, recipe '1'", result.stdout)
 
     def test_ports_off_validation_fails(self):
-        for name in ("VLLM_EXL3_MOE_V2", "VLLM_EXL3_DENSE_SPLITK"):
+        for name in ("VLLM_EXL3_MOE_V2", "VLLM_EXL3_DENSE_SPLITK", "VLLM_EXL3_DENSE_MMA",
+                     "VLLM_EXL3_DENSE_PREFILL_TC", "VLLM_EXL3_MOE_PREFILL_TC", "VLLM_EXL3_PLE_NATIVE_READ",
+                     "VLLM_THIN_GEMM", "VLLM_THIN_GEMM_GLUON", "VLLM_FLA_AUTOTUNE_SKIP_SPILLING"):
             with self.subTest(name=name):
                 effective = dict(VALIDATED)
                 del effective[name]
@@ -132,7 +142,8 @@ class LauncherRefusals(unittest.TestCase):
                     {"EXTRA_ARGS": "--device-memory-utilization 0.97"}, {"EXTRA_ARGS": "--cpu-offload-gb 8"},
                     {"EXTRA_ARGS": "--offload_backend prefetch"}, {"EXTRA_ARGS": "--kv-offloading-size=64"},
                     {"EXTRA_ARGS": '--kv-transfer-config {"kv_connector":"OffloadingConnector"}'},
-                    {"GRAPH_MODE": "FULL"}, {"GRAPH_MODE": "NONE"}):
+                    {"GRAPH_MODE": "FULL"}, {"GRAPH_MODE": "NONE"}, {"SPEC_SCHEDULE": "[[1, 8, 3]]"},
+                    {"SPEC_SCHEDULE": "[[1,8]]"}):
             with self.subTest(env=env):
                 self.assertEqual(self.dry(**env).returncode, 2)
 
@@ -146,6 +157,18 @@ class LauncherRefusals(unittest.TestCase):
         result = self.dry(P2P="force")
         self.assertIn(str(ROOT / "venv/bin/vllm"), result.stdout)
         self.assertIn(str(ROOT / "models/Qwen3.8-Flash-Next-exl3"), result.stdout)
+
+    def test_validated_server_options(self):
+        for schedule in ("", "[[1,2,4],[3,8,3]]"):
+            with self.subTest(schedule=schedule):
+                result = self.dry(P2P="force", SPEC_N="4", SPEC_SCHEDULE=schedule)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                command = shlex.split(result.stdout.split("DRY=1, command:\n", 1)[1])
+                self.assertEqual(command[command.index("--prefix-match-unit") + 1], "64")
+                spec = json.loads(command[command.index("--speculative-config") + 1])
+                self.assertIs(spec["disable_eagle_block_drop"], True)
+                self.assertEqual(spec.get("num_speculative_tokens_per_batch_size"),
+                                 json.loads(schedule) if schedule else None)
 
 
 

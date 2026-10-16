@@ -21,7 +21,7 @@
 #   SERVED_MODEL_NAME  model id clients send (default below)
 # Cards: CUDA_VISIBLE_DEVICES selects exactly two distinct physical cards
 #   (nvidia-smi numbering; default below).
-# Env overrides: MAX_SEQS, MAX_BATCHED, SPEC_N, LOCAL_ARGMAX,
+# Env overrides: MAX_SEQS, MAX_BATCHED, SPEC_N, LOCAL_ARGMAX, SPEC_SCHEDULE,
 #   PLE_PLACEMENT, REASONING_PARSER, TOOL_PARSER, EXTRA_ARGS, P2P, BOOT_CHECK.
 #   MAX_LEN must stay 262144 and GPU_UTIL 0.95 (refused otherwise);
 #   FIRST_LIGHT=1 is the 32K/eager/no-MTP diagnostic, not a serving mode.
@@ -34,6 +34,13 @@
 #   VLLM_EXL3_PLE_OVERLAP=0          PLE row reads overlapping the previous layer
 #   VLLM_EXL3_MOE_V2=0               EXL3 MoE kernel v2 for MoE calls of 1-64 rows
 #   VLLM_EXL3_DENSE_SPLITK=0         EXL3 split-K dense kernel for small decode launches
+#   VLLM_EXL3_DENSE_MMA=0            tensor-core blocks for the split-K kernel's 1-32 row launches
+#   VLLM_EXL3_DENSE_PREFILL_TC=0     EXL3 tensor-core dense kernel for prefill launches over 64 rows
+#   VLLM_EXL3_MOE_PREFILL_TC=0       EXL3 tensor-core MoE kernel for prefill calls of 65-3460 rows
+#   VLLM_EXL3_PLE_NATIVE_READ=0      PLE row reads in one native call instead of a thread pool
+#   VLLM_THIN_GEMM=0                 thin-M BF16 GEMM for the small-row unquantized projections
+#   VLLM_THIN_GEMM_GLUON=0           Gluon thin GEMM for the decode shapes captured in CUDA graphs
+#   VLLM_FLA_AUTOTUNE_SKIP_SPILLING=0  FLA autotune skips configs that spill local memory
 #   P2P=auto                         verify peer content before enabling P2P
 #   P2P=off                          disable all peer transports
 #   P2P=force                        bypass the content check
@@ -57,6 +64,7 @@ QWEN_DEFAULT_VLLM_CUSTOM_ALLREDUCE_FLAGS=1
 QWEN_DEFAULT_VLLM_EXL3_PLE_OVERLAP=1
 QWEN_DEFAULT_VLLM_EXL3_MOE_V2=1
 QWEN_DEFAULT_VLLM_EXL3_DENSE_SPLITK=1
+QWEN_DEFAULT_VLLM_FLA_AUTOTUNE_SKIP_SPILLING=1
 QWEN_DEFAULT_VLLM_USE_BREAKABLE_CUDAGRAPH=1
 QWEN_DEFAULT_VLLM_CUSTOM_ALLREDUCE_PCIE_P2P=1
 QWEN_DEFAULT_NCCL_P2P_LEVEL=SYS
@@ -66,6 +74,7 @@ QWEN_DEFAULT_DIAGNOSTIC_MAX_LEN=32768
 QWEN_DEFAULT_GPU_UTIL=0.95
 QWEN_DEFAULT_SPEC_N=3
 QWEN_DEFAULT_LOCAL_ARGMAX=0
+QWEN_DEFAULT_SPEC_SCHEDULE=
 QWEN_DEFAULT_MAX_SEQS=8
 QWEN_DEFAULT_MAX_BATCHED=3460
 QWEN_DEFAULT_REASONING_PARSER=qwen3
@@ -86,7 +95,7 @@ FIRST_LIGHT=${FIRST_LIGHT:-$QWEN_DEFAULT_FIRST_LIGHT}
 case "$FIRST_LIGHT" in 0|1) ;; *) echo 'FIRST_LIGHT must be 0 or 1' >&2; exit 2;; esac
 if [ "$FIRST_LIGHT" = 1 ]; then MODE=${1:-$QWEN_DEFAULT_DIAGNOSTIC_MODE}; else MODE=${1:-$QWEN_DEFAULT_MODE}; fi
 case "$MODE" in
-  -h|--help) sed -n '2,41p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,48p' "$0"; exit 0 ;;
   mtp|none) ;;
   *) echo "serve.sh: unknown argument '$MODE' (expected mtp, none or --help)" >&2; exit 2 ;;
 esac
@@ -171,10 +180,24 @@ export VLLM_QWEN4_QSA_TOPK_CANONICAL=${VLLM_QWEN4_QSA_TOPK_CANONICAL:-$QWEN_DEFA
 export VLLM_CUSTOM_ALLREDUCE_FLAGS=${VLLM_CUSTOM_ALLREDUCE_FLAGS:-${QWEN_DEFAULT_VLLM_CUSTOM_ALLREDUCE_FLAGS:-0}}
 # SSD PLE row reads overlap the preceding decoder layer instead of stalling the step.
 export VLLM_EXL3_PLE_OVERLAP=${VLLM_EXL3_PLE_OVERLAP:-${QWEN_DEFAULT_VLLM_EXL3_PLE_OVERLAP:-0}}
+# SSD PLE rows of a step are read in one native call that releases the GIL, not a Python thread pool.
+export VLLM_EXL3_PLE_NATIVE_READ=${VLLM_EXL3_PLE_NATIVE_READ:-1}
 # EXL3 MoE kernel v2 for MoE calls of 1-64 rows (decode and short prefills).
 export VLLM_EXL3_MOE_V2=${VLLM_EXL3_MOE_V2:-${QWEN_DEFAULT_VLLM_EXL3_MOE_V2:-0}}
 # EXL3 split-K dense kernel for the small-row (tiny and small tile) launches.
 export VLLM_EXL3_DENSE_SPLITK=${VLLM_EXL3_DENSE_SPLITK:-${QWEN_DEFAULT_VLLM_EXL3_DENSE_SPLITK:-0}}
+# Tensor-core blocks for the split-K kernel's dense launches of 1-32 rows (needs VLLM_EXL3_DENSE_SPLITK).
+export VLLM_EXL3_DENSE_MMA=${VLLM_EXL3_DENSE_MMA:-1}
+# Tensor-core EXL3 dense kernel for prefill launches of more than 64 rows.
+export VLLM_EXL3_DENSE_PREFILL_TC=${VLLM_EXL3_DENSE_PREFILL_TC:-1}
+# Tensor-core EXL3 routed experts for prefill MoE calls of 65-3460 rows.
+export VLLM_EXL3_MOE_PREFILL_TC=${VLLM_EXL3_MOE_PREFILL_TC:-1}
+# Thin-M BF16 GEMM for the small-row calls of the unquantized projections; the Gluon
+# kernel takes the decode shapes captured in CUDA graphs (needs VLLM_THIN_GEMM).
+export VLLM_THIN_GEMM=${VLLM_THIN_GEMM:-1}
+export VLLM_THIN_GEMM_GLUON=${VLLM_THIN_GEMM_GLUON:-1}
+# FLA autotune never launches a config that spills on sm_80 (first-boot KV loss on a cold Triton cache).
+export VLLM_FLA_AUTOTUNE_SKIP_SPILLING=${VLLM_FLA_AUTOTUNE_SKIP_SPILLING:-${QWEN_DEFAULT_VLLM_FLA_AUTOTUNE_SKIP_SPILLING:-0}}
 export VLLM_USE_BREAKABLE_CUDAGRAPH=${VLLM_USE_BREAKABLE_CUDAGRAPH:-$QWEN_DEFAULT_VLLM_USE_BREAKABLE_CUDAGRAPH}
 if [ "$FIRST_LIGHT" = 0 ] && [ "$VLLM_USE_BREAKABLE_CUDAGRAPH" != 1 ]; then
   echo 'Production EXL3 requires VLLM_USE_BREAKABLE_CUDAGRAPH=1' >&2; exit 2
@@ -224,6 +247,18 @@ if [ "$MODE" = mtp ]; then
   case "$LOCAL_ARGMAX" in 0|1) ;; *) echo 'LOCAL_ARGMAX must be 0 or 1' >&2; exit 2;; esac
   SPEC_JSON="{\"method\":\"mtp\",\"num_speculative_tokens\":$SPEC_N"
   if [ "$LOCAL_ARGMAX" = 1 ]; then SPEC_JSON+=",\"use_local_argmax_reduction\":true"; fi
+  # SPEC_SCHEDULE (empty: off): upstream dynamic speculative decoding, num_speculative_tokens_per_batch_size,
+  # a JSON list of [first_batch, last_batch, drafts] ranges without spaces starting at batch 1, e.g.
+  # [[1,2,4],[3,8,3]] with SPEC_N=4 (drafts above SPEC_N are clamped to it).
+  SPEC_SCHEDULE=${SPEC_SCHEDULE:-${QWEN_DEFAULT_SPEC_SCHEDULE:-}}
+  if [ -n "$SPEC_SCHEDULE" ]; then
+    SCHEDULE_RANGE='\[[1-9][0-9]*,[1-9][0-9]*,[0-9]+\]'
+    if [[ ! "$SPEC_SCHEDULE" =~ ^\[$SCHEDULE_RANGE(,$SCHEDULE_RANGE)*\]$ ]]; then
+      echo 'SPEC_SCHEDULE must be [[first,last,drafts],...] without spaces' >&2; exit 2
+    fi
+    SPEC_JSON+=",\"num_speculative_tokens_per_batch_size\":$SPEC_SCHEDULE"
+  fi
+  SPEC_JSON+=",\"disable_eagle_block_drop\":true"
   SPEC=(--speculative-config "$SPEC_JSON}")
 fi
 SERVED_MODEL_NAME=${SERVED_MODEL_NAME:-$QWEN_DEFAULT_SERVED_MODEL_NAME}
@@ -245,6 +280,7 @@ CMD=("$VENV/bin/vllm" serve "$MODEL"
   --reasoning-parser "${REASONING_PARSER:-$QWEN_DEFAULT_REASONING_PARSER}"
   --enable-auto-tool-choice --tool-call-parser "${TOOL_PARSER:-$QWEN_DEFAULT_TOOL_PARSER}"
   --port "$PORT"
+  --prefix-match-unit 64
   ${FL_ARGS[@]+"${FL_ARGS[@]}"} "${GRAPH_ARGS[@]}" ${SPEC[@]+"${SPEC[@]}"})
 # Additional arguments are whitespace-separated.
 read -r -a EXTRA <<< "${EXTRA_ARGS:-}"

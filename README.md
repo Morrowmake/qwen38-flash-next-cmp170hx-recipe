@@ -90,9 +90,10 @@ publication and replaced by that measurement.**
 | 4 | 166.0 ‡ | 56.2 ms ‡ |
 | 8 | 242.2 ‡ | 80.6 ms ‡ |
 
-Two EXL3 kernels written for this card are on by default: a MoE kernel for
-calls of 1 to 64 rows and a split-K dense kernel for the small decode
-launches (see Engine switches).
+EXL3 kernels written for this card are on by default: MoE kernels for decode
+and prefill calls, a split-K dense kernel with tensor-core blocks for the small
+decode launches and a tensor-core dense kernel for prefill (see Engine
+switches).
 
 | Other measurements | Value |
 |---|---|
@@ -144,6 +145,7 @@ run); a prefix assignment beats `.env` for one run
 | `SPEC_MODE` | `mtp` | `mtp` or `none` (no speculation; set `BOOT_CHECK=0`, the startup check expects drafting) |
 | `SPEC_N` | `3` | MTP draft tokens per step |
 | `LOCAL_ARGMAX` | `0` | `1`: per-card draft argmax, same drafts |
+| `SPEC_SCHEDULE` | empty | draft count by batch size, e.g. `[[1,2,4],[3,8,3]]` with `SPEC_N=4`; not a tested serving default |
 | `MAX_SEQS` | `8` | concurrent sequences |
 | `MAX_BATCHED` | `3460` | tokens per scheduler step |
 | `PLE_PLACEMENT` | `ssd` | n-gram table placement: `ssd`; `ram` and `device` are comparison placements, not the tested default |
@@ -169,6 +171,13 @@ restart, no rebuild.
 | `VLLM_EXL3_PLE_OVERLAP` | n-gram row reads overlap the previous decoder layer |
 | `VLLM_EXL3_MOE_V2` | EXL3 MoE kernel v2 for MoE calls of 1 to 64 rows (decode and short prefills) |
 | `VLLM_EXL3_DENSE_SPLITK` | EXL3 split-K dense kernel for the small-row decode launches |
+| `VLLM_EXL3_DENSE_MMA` | tensor-core blocks for the split-K kernel's dense launches of 1 to 32 rows (needs `VLLM_EXL3_DENSE_SPLITK`) |
+| `VLLM_EXL3_DENSE_PREFILL_TC` | EXL3 tensor-core dense kernel for prefill launches of more than 64 rows |
+| `VLLM_EXL3_MOE_PREFILL_TC` | EXL3 tensor-core MoE kernel for prefill MoE calls of 65 to 3460 rows |
+| `VLLM_EXL3_PLE_NATIVE_READ` | n-gram rows of a step read in one native call instead of a thread pool |
+| `VLLM_THIN_GEMM` | thin-M BF16 GEMM for the small-row calls of the unquantized projections |
+| `VLLM_THIN_GEMM_GLUON` | Gluon thin GEMM for the decode shapes captured in CUDA graphs (needs `VLLM_THIN_GEMM`) |
+| `VLLM_FLA_AUTOTUNE_SKIP_SPILLING` | FLA autotune skips configs that spill local memory, so a first boot on a cold kernel cache keeps its KV cache space |
 | `VLLM_CUSTOM_ALLREDUCE_PCIE_P2P` | custom all-reduce over PCIe peer access (only after the P2P check passes) |
 
 ## Update
