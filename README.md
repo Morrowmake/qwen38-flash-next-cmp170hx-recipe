@@ -88,28 +88,35 @@ the cards with `CUDA_VISIBLE_DEVICES` (two distinct nvidia-smi numbers).
 Measured 2026-10-15 on 2× CMP 170HX, 74 SMs per card, P2P on, recipe defaults,
 262,144-token context, 180 W per card and PCIe x16 links. Decode uses the
 MiaAI-Lab protocol: 400 tokens, temperature 0, thinking off; one user is the
-median of ten runs (five on each of two boots), eight users the median
-aggregate rate of three runs on one boot.
+median of ten runs (five on each of two boots), two, four and eight users the
+median aggregate rate of three runs on one boot.
 
 | | Tensor-parallel 2<br>+ peer-to-peer (default after verification) |
 |---|---:|
 | **1 user** · structured | **152.8** |
 | **1 user** · code | **152.6** |
 | **1 user** · prose | **118.3** |
+| **2 users, total** · structured | 236.5¹ |
+| **2 users, total** · code | 265.0 |
+| **2 users, total** · prose | 204.6 |
+| **4 users, total** · structured | 357.1¹ |
+| **4 users, total** · code | 458.6 |
+| **4 users, total** · prose | 327.2 |
 | **8 users, total** · structured | 588.2¹ |
 | **8 users, total** · code | 674.7 |
 | **8 users, total** · prose | 489.9 |
 | **Prompt reading** (cold prefill) | 2,651 |
 | **KV pool** (tokens) | 1,044,325 |
 
-One user is streaming speed per request; eight users is the combined rate of
-eight simultaneous requests, in tok/s. Prompt reading is the median of nine
-cold prefills.
+All rates are up-to figures. One user is streaming speed per request; two, four
+and eight users are the combined rate of that many simultaneous requests, in tok/s. Prompt reading is
+the median of nine cold prefills.
 
-¹ Some structured replies finish early: the median is 279 tokens per reply at
-eight users, against 400 for code and prose. The total counts the tokens
-actually produced, so shorter replies lower it; per-request decode is
-104.6 tok/s structured, 101.2 code, 67.8 prose.
+¹ Some structured replies finish early: the median is 346, 273 and 279 tokens
+per reply at two, four and eight users, against 400 for code and prose. The
+total counts the tokens actually produced, so shorter replies lower it.
+Per-request decode (structured / code / prose) is 147.3 / 150.4 / 111.6 tok/s
+at two users, 137.3 / 135.2 / 91.6 at four and 104.6 / 101.2 / 67.8 at eight.
 
 | Other measurements | Value |
 |---|---|
