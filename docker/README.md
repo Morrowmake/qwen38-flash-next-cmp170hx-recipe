@@ -76,7 +76,7 @@ You need two of the cards, NVIDIA driver **580 or newer**, Docker with the
 and the checkpoint on an SSD on the host (`./download.sh` puts it in
 `./models`). From the root of this repository:
 ```bash
-IMAGE=ghcr.io/morrowmake/vllm-cmp170hx@sha256:01f58834bcb116430444bf95b60ad81e8afaeedc307c1d0d84b71bcfa3e87ec1
+IMAGE=ghcr.io/morrowmake/vllm-cmp170hx@sha256:5b45c4d6feafefe2eba962375b0a9a0b64fd22b9e05abb4d1966f14a32a2db79
 MODELS=$PWD/models                  # holds Qwen3.8-Flash-Next-exl3
 CACHE=$PWD/cache                    # kernel compile caches, kept between starts
 mkdir -p "$CACHE"

@@ -136,7 +136,7 @@ load_env_defaults "$SCRIPT_DIR/.env"
 # everywhere at once). The commit pin is read by the release tools, not here.
 # shellcheck disable=SC2034
 RELEASE_VLLM_COMMIT=18305948acba3f4c4d912cdd56f2202d2ebd94e8
-RELEASE_IMAGE=ghcr.io/morrowmake/vllm-cmp170hx@sha256:01f58834bcb116430444bf95b60ad81e8afaeedc307c1d0d84b71bcfa3e87ec1
+RELEASE_IMAGE=ghcr.io/morrowmake/vllm-cmp170hx@sha256:5b45c4d6feafefe2eba962375b0a9a0b64fd22b9e05abb4d1966f14a32a2db79
 IMAGE="${IMAGE:-$RELEASE_IMAGE}"
 MODELS_DIR="${MODELS_DIR:-$SCRIPT_DIR/models}"
 # The checkpoint: the 5.05 bpw branch, pinned to the revision the release was
