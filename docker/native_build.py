@@ -595,18 +595,30 @@ def pack(args):
     actual = sha256(Path(args.native) / "manifest.json")
     if actual != args.manifest_sha256:
         raise NativeError(f"native manifest {actual} is not the pinned {args.manifest_sha256}")
-    if manifest["source"]["commit"] != args.commit:
-        raise NativeError(f"native files were built from {manifest['source']['commit']}, "
-                          f"the image engine is {args.commit}")
+    same_source(opt_tree := Path(args.opt) / "vllm-src", manifest, args.commit)
     if manifest["toolchain"]["base_image"]["manifest"] != BASE_MANIFEST:
         raise NativeError("native files were not built in the pinned base image")
     opt = Path(args.opt)
-    check_source(opt / "vllm-src", manifest)
+    check_source(opt_tree, manifest)
     if args.venv_check:
         check_venv(opt / "venv", manifest)
     install_files(args.native, opt / "vllm-src", manifest)
     shutil.copyfile(Path(args.native) / "manifest.json", opt / SHIPPED_MANIFEST)
     print(f"[native] packed {len(manifest['artefacts'])} file(s), manifest {actual}")
+
+
+def same_source(tree, manifest, commit):
+    """The manifest belongs to `commit`: built from it, or from a commit whose
+    build inputs (csrc, cmake, CMakeLists.txt) are the same trees. The tree is
+    a checkout of `commit`; its inputs at HEAD must be the manifest's."""
+    built = manifest["source"]["commit"]
+    head = git(tree, "rev-parse", "HEAD")
+    if head != commit:
+        raise NativeError(f"{tree} is at {head}, not the engine {commit}")
+    if built == commit:
+        return
+    check_source(tree, manifest)
+    print(f"[native] built from {built}, whose {', '.join(SOURCE_INPUTS)} equal the engine {commit}'s")
 
 
 def layer_files(oci, wanted):
@@ -714,8 +726,8 @@ def main(argv=None):
             manifest = json.loads(a.manifest.read_text())
             if a.manifest_sha256 and sha256(a.manifest) != a.manifest_sha256:
                 raise NativeError(f"{a.manifest} is not the pinned {a.manifest_sha256}")
-            if a.commit and manifest["source"]["commit"] != a.commit:
-                raise NativeError(f"{a.manifest} was built from {manifest['source']['commit']}")
+            if a.commit:
+                same_source(Path(a.tree), manifest, a.commit)
             check_tree(a.tree, manifest)
             print(f"[native] {a.tree} holds the files of manifest {sha256(a.manifest)}")
         elif a.command == "pack":

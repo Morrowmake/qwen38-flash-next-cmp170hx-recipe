@@ -294,10 +294,31 @@ def test_pack_requires_the_pinned_manifest_and_commit(fork, tmp_path, capsys):
     assert nb.main(base + ["--manifest-sha256", "0" * 64, "--commit", commit]) == 1
     assert "not the pinned" in capsys.readouterr().err
     assert nb.main(base + ["--manifest-sha256", pin, "--commit", "b" * 40]) == 1
-    assert "image engine is" in capsys.readouterr().err
+    assert "not the engine" in capsys.readouterr().err
     assert nb.main(base + ["--manifest-sha256", pin, "--commit", commit]) == 0
     assert (opt / "vllm-src" / MARLIN).read_bytes() == b"marlin bytes"
     assert (opt / nb.SHIPPED_MANIFEST).read_bytes() == (native / "manifest.json").read_bytes()
+
+
+def test_pack_takes_a_build_of_a_commit_with_the_same_inputs(fork, tmp_path, capsys):
+    tree, native, built = fork
+    (tree / "vllm/__init__.py").write_text("# Python only\n")
+    git(tree, "commit", "-qam", "python change")
+    engine = git(tree, "rev-parse", "HEAD")
+    opt = tmp_path / "opt"
+    (opt / "venv").mkdir(parents=True)
+    tree.rename(opt / "vllm-src")
+    pin = nb.sha256(native / "manifest.json")
+    argv = ["pack", "--native", str(native), "--opt", str(opt), "--manifest-sha256", pin]
+    assert nb.main(argv + ["--commit", engine]) == 0
+    assert f"built from {built}" in capsys.readouterr().out
+    assert nb.main(["check-tree", "--manifest", str(native / "manifest.json"),
+                    "--tree", str(opt / "vllm-src"), "--commit", engine]) == 0
+    (opt / "vllm-src/csrc/a.cu").write_text("changed kernel")
+    git(opt / "vllm-src", "commit", "-qam", "kernel change")
+    other = git(opt / "vllm-src", "rev-parse", "HEAD")
+    assert nb.main(argv + ["--commit", other]) == 1
+    assert "the build used" in capsys.readouterr().err
 
 
 def test_shipped_manifest_belongs_to_the_engine_layer():
