@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If this recipe helps you, please cite it."
+title: "Qwen3.8-Flash-Next on 2x NVIDIA CMP 170HX: a serving recipe"
+authors:
+  - name: Morrowmake
+repository-code: "https://github.com/Morrowmake/qwen38-flash-next-cmp170hx-recipe"
+license: MIT
+version: 1.0.0
+date-released: 2026-10-16

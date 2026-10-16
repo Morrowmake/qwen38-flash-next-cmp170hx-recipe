@@ -198,3 +198,8 @@ validation JSON; `tools/check-release.py` checks commit identity and wording;
 
 The recipe is MIT ([`LICENSE`](LICENSE)). The engine is Apache-2.0; the
 checkpoint has its own licence (see its model card).
+
+## Credits
+
+If this recipe helps you, please credit Morrowmake and link this repository.
+Citation metadata: [`CITATION.cff`](CITATION.cff).
