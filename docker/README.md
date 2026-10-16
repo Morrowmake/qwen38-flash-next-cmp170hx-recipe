@@ -5,7 +5,7 @@ The engine in a container: the only way this recipe runs. `./start.sh` and
 how to run it by hand with `docker run`.
 ## What the image contains
 - **Engine:** the [vLLM fork](https://github.com/Morrowmake/vllm-cmp170hx)
-  pinned at `{{PIN}}` (filled in at release). The builders install the fork and
+  pinned at `18305948acba3f4c4d912cdd56f2202d2ebd94e8` (filled in at release). The builders install the fork and
   its pinned runtime dependencies in `/opt/venv`; the resulting package list is
   recorded in `/opt/venv/requirements.lock.txt`.
 - **EXL3 extension:** the fork's compiled sm_80 EXL3 library (`vllm._exl3_C`),
@@ -20,14 +20,16 @@ how to run it by hand with `docker run`.
   settings are baked in.
 - **Peer check:** a prebuilt sm_80 content probe, selected only when its source
   hash matches the mounted recipe. `P2P_PREBUILT=0` uses runtime compilation.
-- **Seed mount:** `/opt/cache-seed` exists even when no seed is included.
+- **No compilation-cache seed.** This image carries none (`/opt/cache-seed` is
+  empty), so the first start compiles its kernels into the cache mount.
 - **No weights.** The checkpoint is mounted from the host.
 
-Engine image tag: `ghcr.io/morrowmake/vllm-cmp170hx:engine-{{PIN}}`. Image tags
+Engine image tag: `ghcr.io/morrowmake/vllm-cmp170hx:engine-18305948ac`. Image tags
 identify engine source, independently of recipe release numbers. Publication
 requires release validation and acceptance of the exact image digest.
 ## Build it
-**The fork's compiled extensions** (EXL3 among them) are built once, before the
+**The fork's compiled extensions** (EXL3; this engine ships without the
+optional Marlin library) are built once, before the
 image, by `docker/native_build.py` inside the pinned CUDA base image (rootless,
 with bubblewrap; fixed paths, so two builds of one commit give the same bytes).
 Native validation runs those exact files, and both builders pack them by hash;

@@ -5,9 +5,9 @@
 # 3.12, torch 2.13.0 (CUDA 13.0 build), the fork checked out at the pinned
 # commit and installed editable with upstream's precompiled extensions
 # (VLLM_USE_PRECOMPILED=1), then the runtime extras the engine pins in
-# requirements/cuda.txt (FlashInfer 0.7.0, humming-kernels 0.1.16, TileLang
-# 0.1.12). The pin sits on upstream 31e2443c90. Its C++, CUDA, CMake,
-# setup and Rust inputs match the e11962fc1 nightly wheel. Our own compiled
+# requirements/cuda.txt (FlashInfer 0.7.0.post1, humming-kernels 0.1.16, TileLang
+# 0.1.12). The pin sits on upstream 4e0681ed56, whose own nightly wheel
+# supplies the upstream compiled extensions (VLLM_WHEEL_COMMIT). Our own compiled
 # extensions are not compiled here: docker/native_build.py builds them once in
 # this base image, native validation runs those exact files, and this build
 # packs them by hash from docker/native/ (its output; NATIVE_MANIFEST_SHA256
@@ -24,7 +24,7 @@
 # mounted and used as the entry point, so the cards (CUDA_VISIBLE_DEVICES) and
 # every setting are chosen at run time (container.env in this folder).
 #
-#   bash docker/build-docker.sh vllm-cmp170hx:engine-f1f0fcb68e
+#   bash docker/build-docker.sh vllm-cmp170hx:engine-18305948ac
 # The wrapper validates the final layer count; Dockerfile instructions cannot
 # inspect the inherited base image manifest.
 
@@ -32,7 +32,7 @@ ARG BASE=nvidia/cuda:13.3.1-devel-ubuntu24.04@sha256:4ff859525f99de5782aa73607ce
 
 ARG IMAGE_LAYERED=1
 
-ARG VLLM_COMMIT={{PIN}}
+ARG VLLM_COMMIT=18305948acba3f4c4d912cdd56f2202d2ebd94e8
 ARG NATIVE_MANIFEST_SHA256=
 
 FROM ${BASE} AS build
@@ -61,14 +61,14 @@ RUN uv pip install --extra-index-url https://flashinfer.ai/whl/ -r /tmp/CONSTRAI
 ARG VLLM_REPO=https://github.com/Morrowmake/vllm-cmp170hx.git
 ARG VLLM_BRANCH=ampere
 ARG VLLM_COMMIT
-ARG VLLM_WHEEL_COMMIT={{WHEEL_PIN}}
+ARG VLLM_WHEEL_COMMIT=4e0681ed5654c1d8afb3c104d4381afd08529de8
 # Full transport clone: version construction and wheel lookup need history.
 RUN git clone --no-local --no-tags --single-branch --branch "${VLLM_BRANCH}" "${VLLM_REPO}" /opt/vllm-src \
  && git -C /opt/vllm-src checkout -B "${VLLM_BRANCH}" "${VLLM_COMMIT}" \
  && git -C /opt/vllm-src update-ref "refs/remotes/origin/${VLLM_BRANCH}" "${VLLM_COMMIT}" \
  && git -C /opt/vllm-src fetch --no-tags https://github.com/vllm-project/vllm.git \
-            refs/tags/v0.30.1rc0:refs/tags/v0.30.1rc0 \
- && git -C /opt/vllm-src merge-base --is-ancestor v0.30.1rc0 HEAD \
+            refs/tags/v0.32.0rc0:refs/tags/v0.32.0rc0 \
+ && git -C /opt/vllm-src merge-base --is-ancestor v0.32.0rc0 HEAD \
  && git -C /opt/vllm-src submodule update --init --recursive --depth 1 \
  && git -C /opt/vllm-src reflog expire --expire=now --all \
  && git -C /opt/vllm-src repack -ad \
@@ -111,7 +111,7 @@ COPY --from=build /payload/engine/opt/image-tools/ /opt/image-tools/
 
 FROM runtime-${IMAGE_LAYERED}
 ARG VLLM_COMMIT
-ARG IMAGE_TAG=engine-{{PIN}}
+ARG IMAGE_TAG=engine-18305948ac
 ENV PATH=/opt/venv/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     VIRTUAL_ENV=/opt/venv \
     CUDA_HOME=/usr/local/cuda \

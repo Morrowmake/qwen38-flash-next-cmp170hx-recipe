@@ -135,14 +135,14 @@ load_env_defaults "$SCRIPT_DIR/.env"
 # Both are filled in at release (tools/set-pin.sh moves the commit pin
 # everywhere at once). The commit pin is read by the release tools, not here.
 # shellcheck disable=SC2034
-RELEASE_VLLM_COMMIT={{PIN}}
+RELEASE_VLLM_COMMIT=18305948acba3f4c4d912cdd56f2202d2ebd94e8
 RELEASE_IMAGE=ghcr.io/morrowmake/vllm-cmp170hx@sha256:{{IMAGE_DIGEST}}
 IMAGE="${IMAGE:-$RELEASE_IMAGE}"
 MODELS_DIR="${MODELS_DIR:-$SCRIPT_DIR/models}"
 # The checkpoint: the 5.05 bpw branch, pinned to the revision the release was
 # validated with. The MTP drafter is inside it.
 TARGET_REPO="${TARGET_REPO:-turboderp/Qwen3.8-Flash-Next-exl3}"
-TARGET_REVISION="${TARGET_REVISION:-{{CHECKPOINT_REVISION}}}"
+TARGET_REVISION="${TARGET_REVISION:-7cef615f7fd3681295b68848018876dfabc336c7}"
 MODEL="${MODEL:-$MODELS_DIR/${TARGET_REPO##*/}}"
 HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-8000}"

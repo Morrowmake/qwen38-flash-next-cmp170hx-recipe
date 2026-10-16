@@ -48,6 +48,8 @@ def test_moves_every_reference_and_preserves_history(scratch):
             text = (scratch / name).read_text()
             assert SLOT not in text and pin in text
             assert name + ":" in result.stdout
+        assert re.search(r"^ARG IMAGE_TAG=engine-" + pin[:10] + r"$",
+                         (scratch / "docker/Dockerfile").read_text(), re.M)
         assert history_of((scratch / "CHANGELOG.md").read_text()) == history
     assert run(scratch, "b" * 40).returncode == 0
 

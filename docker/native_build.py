@@ -384,8 +384,10 @@ def build(args):
     if archive.wait():
         raise NativeError("git archive failed")
     exl3 = exl3_mode(opt / "vllm-src")
-    if not (opt / "vllm-src" / MARLIN_BUILDER).exists():
+    if not args.no_marlin and not (opt / "vllm-src" / MARLIN_BUILDER).exists():
         raise NativeError(f"{commit} has no {MARLIN_BUILDER}")
+    if args.no_marlin and not exl3:
+        raise NativeError(f"--no-marlin leaves nothing to build: {commit} has no EXL3 extension")
     shutil.copyfile(args.constraints, bld / "CONSTRAINTS")
     deps = {}
     if exl3 == "cmake":
@@ -420,12 +422,14 @@ VIRTUAL_ENV=/opt/native-tools /tmp/uv/uv pip install cmake=={CMAKE_VERSION}
 """ if exl3 == "cmake" else ""), network=True, uv=uv, uv_cache=uv_cache, source_readonly=False)
     timings["python_venv_s"] = round(time.monotonic() - step, 3)
 
-    step = time.monotonic()
-    ns(f"cd {SRC} && {MARLIN_BUILD_ENV} /opt/venv/bin/python {MARLIN_BUILDER} "
-       f"--out {BUILD}/out/vllm --build-dir {BUILD}/ampere_marlin --verbose")
-    timings["ampere_marlin_s"] = round(time.monotonic() - step, 3)
-    extensions = {MARLIN: {"builder": MARLIN_BUILDER,
-                           "flags": ninja_rules(bld / "ampere_marlin/build.ninja")}}
+    extensions = {}
+    if not args.no_marlin:
+        step = time.monotonic()
+        ns(f"cd {SRC} && {MARLIN_BUILD_ENV} /opt/venv/bin/python {MARLIN_BUILDER} "
+           f"--out {BUILD}/out/vllm --build-dir {BUILD}/ampere_marlin --verbose")
+        timings["ampere_marlin_s"] = round(time.monotonic() - step, 3)
+        extensions[MARLIN] = {"builder": MARLIN_BUILDER,
+                              "flags": ninja_rules(bld / "ampere_marlin/build.ninja")}
     if exl3:
         step = time.monotonic()
         # The source is read-only for the standalone builder; CMake's configure writes
@@ -538,7 +542,8 @@ def variants(path):
 
 
 def check_tree(tree, manifest):
-    """The tree holds exactly the manifest's files and no other build of them."""
+    """The tree holds exactly the manifest's files and no other build of them, and
+    no build of one of our extensions that the manifest leaves out."""
     tree = Path(tree)
     for rel, entry in manifest["artefacts"].items():
         path = tree / rel
@@ -547,6 +552,13 @@ def check_tree(tree, manifest):
         shadow = [str(p) for p in variants(path) if p.exists() or p.is_symlink()]
         if shadow:
             raise NativeError(f"other builds of {rel} present: {shadow}")
+    for rel in (MARLIN, EXL3):
+        if rel in manifest["artefacts"]:
+            continue
+        path = tree / rel
+        stray = [str(p) for p in [path, *variants(path)] if p.exists() or p.is_symlink()]
+        if stray:
+            raise NativeError(f"builds of {rel} present that the manifest does not list: {stray}")
 
 
 def install_files(native, tree, manifest):
@@ -666,6 +678,8 @@ def main(argv=None):
     b.add_argument("--work", type=Path, required=True, help="new scratch directory")
     b.add_argument("--out", type=Path, required=True, help="new output directory")
     b.add_argument("--jobs", type=int, default=8)
+    b.add_argument("--no-marlin", action="store_true",
+                   help="leave out vllm._ampere_marlin_C (engines that ship without it)")
     b.add_argument("--uv", default="uv")
     b.add_argument("--keep-work", action="store_true")
     i = sub.add_parser("install", help="install a manifest's files into a fork tree")

@@ -1,6 +1,6 @@
 # Qwen3.8-Flash-Next on 2× CMP 170HX
 
-[![engine](https://img.shields.io/badge/engine-vllm--cmp170hx%20{{PIN}}-blue)](https://github.com/Morrowmake/vllm-cmp170hx/tree/{{PIN}})
+[![engine](https://img.shields.io/badge/engine-vllm--cmp170hx%2018305948acba3f4c4d912cdd56f2202d2ebd94e8-blue)](https://github.com/Morrowmake/vllm-cmp170hx/tree/18305948acba3f4c4d912cdd56f2202d2ebd94e8)
 
 Serve [turboderp/Qwen3.8-Flash-Next-exl3](https://huggingface.co/turboderp/Qwen3.8-Flash-Next-exl3)
 (EXL3, 5.05 bpw) on two NVIDIA CMP 170HX cards with a patched vLLM: an
@@ -68,9 +68,9 @@ the cards with `CUDA_VISIBLE_DEVICES` (two distinct nvidia-smi numbers).
 
 | | |
 |---|---|
-| Engine | [Morrowmake/vllm-cmp170hx](https://github.com/Morrowmake/vllm-cmp170hx) at `{{PIN}}` |
-| Image | `ghcr.io/morrowmake/vllm-cmp170hx@sha256:{{IMAGE_DIGEST}}` (seed: TBD-at-release) |
-| Checkpoint | `turboderp/Qwen3.8-Flash-Next-exl3`, branch 5.05 bpw, revision `{{CHECKPOINT_REVISION}}` |
+| Engine | [Morrowmake/vllm-cmp170hx](https://github.com/Morrowmake/vllm-cmp170hx) at `18305948acba3f4c4d912cdd56f2202d2ebd94e8` |
+| Image | `ghcr.io/morrowmake/vllm-cmp170hx@sha256:{{IMAGE_DIGEST}}` (seed: no) |
+| Checkpoint | `turboderp/Qwen3.8-Flash-Next-exl3`, branch 5.05 bpw, revision `7cef615f7fd3681295b68848018876dfabc336c7` |
 | Precision | EXL3 5.05 bpw weights, BF16 activations, BF16 KV cache, BF16 indexer cache |
 | Speculation | native MTP, 3 draft tokens |
 

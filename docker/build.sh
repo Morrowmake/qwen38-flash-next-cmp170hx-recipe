@@ -20,13 +20,13 @@ OUT="${OUT:-$HERE/out}"
 BASE="nvidia/cuda:13.3.1-devel-ubuntu24.04@sha256:4ff859525f99de5782aa73607ce24219b07dddd48d12b97c1c301d7e1cfb0a87"
 VLLM_REPO="https://github.com/Morrowmake/vllm-cmp170hx.git"
 VLLM_BRANCH="${VLLM_BRANCH:-ampere}"
-RELEASE_VLLM_COMMIT='{{PIN}}'
+RELEASE_VLLM_COMMIT='18305948acba3f4c4d912cdd56f2202d2ebd94e8'
 VLLM_COMMIT="${VLLM_COMMIT:-$RELEASE_VLLM_COMMIT}"
 # Upstream nightly whose C++, CUDA, CMake, setup and Rust inputs equal the
 # pin's upstream base (filled in at release). Our own extensions come from NATIVE_DIR (above).
-VLLM_WHEEL_COMMIT="{{WHEEL_PIN}}"
+VLLM_WHEEL_COMMIT="4e0681ed5654c1d8afb3c104d4381afd08529de8"
 # Upstream release tag the pin's base descends from (sets the version string).
-VERSION_TAG="{{VERSION_TAG}}"
+VERSION_TAG="v0.32.0rc0"
 # sha256 of the validated native_build.py manifest.json for RELEASE_VLLM_COMMIT.
 RELEASE_NATIVE_MANIFEST_SHA256=''
 NATIVE_MANIFEST_SHA256="${NATIVE_MANIFEST_SHA256:-$RELEASE_NATIVE_MANIFEST_SHA256}"

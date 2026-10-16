@@ -404,3 +404,40 @@ def test_install_and_check_tree_take_the_standalone_exl3(fork):
     assert (tree / nb.EXL3).read_bytes() == b"exl3 bytes" and not shadow.exists()
     assert nb.main(["check-tree", "--manifest", str(native / "manifest.json"),
                     "--tree", str(tree), "--commit", commit]) == 0
+
+
+def test_build_without_marlin_compiles_only_exl3(tmp_path, monkeypatch, capsys):
+    argv = exl3_fork(tmp_path, (nb.EXL3_BUILDER, nb.EXL3_SOURCE)) + ["--no-marlin"]
+    monkeypatch.setattr(nb, "Namespace", Recorder)
+    monkeypatch.setattr(Recorder, "steps", [])
+    assert nb.main(argv) == 1
+    assert "stop after the compile steps" in capsys.readouterr().err
+    scripts = [script for script, _ in Recorder.steps]
+    assert len(scripts) == 2 and not any(nb.MARLIN_BUILDER in s for s in scripts)
+    assert nb.EXL3_BUILDER in scripts[1]
+
+
+def test_build_without_marlin_needs_exl3(tmp_path, monkeypatch, capsys):
+    argv = exl3_fork(tmp_path, ()) + ["--no-marlin"]
+    monkeypatch.setattr(nb, "Namespace", Recorder)
+    monkeypatch.setattr(Recorder, "steps", [])
+    assert nb.main(argv) == 1
+    assert "leaves nothing to build" in capsys.readouterr().err and not Recorder.steps
+
+
+def test_check_tree_refuses_an_extension_the_manifest_leaves_out(fork):
+    tree, native, commit = fork
+    manifest = json.loads((native / "manifest.json").read_text())
+    (native / MARLIN).unlink()
+    (native / nb.EXL3).write_bytes(b"exl3 bytes")
+    manifest["artefacts"] = {nb.EXL3: {"sha256": sha(b"exl3 bytes"), "bytes": 10}}
+    (native / "manifest.json").write_text(nb.dump(manifest))
+    assert nb.main(["install", "--native", str(native), "--tree", str(tree)]) == 0
+    check = ["check-tree", "--manifest", str(native / "manifest.json"), "--tree", str(tree),
+             "--commit", commit]
+    assert nb.main(check) == 0
+    for name in (MARLIN, "vllm/_ampere_marlin_C.so"):
+        (tree / name).write_bytes(b"unlisted build")
+        assert nb.main(check) == 1
+        (tree / name).unlink()
+    assert nb.main(check) == 0

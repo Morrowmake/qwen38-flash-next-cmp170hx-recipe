@@ -54,9 +54,10 @@ for name in sorted(set(files) - {"", "tools/set-pin.sh"}):
         if len(sections) > 1:
             end = sections[1].start()
             current, history = text[:end], text[end:]
-    changed = current.replace(old, pin)
+    # Image tags carry ten characters (docker/image_identity.py), also from the slot.
+    changed = current.replace("engine-" + old, "engine-" + pin[:10]).replace(old, pin)
     if old != slot:
-        changed = re.sub(r"(?<![0-9a-f])" + old[:10] + r"(?![0-9a-f])", pin, changed)
+        changed = re.sub(r"(?<![0-9a-f])" + old[:10] + r"(?![0-9a-f])", pin[:10], changed)
     if changed != current:
         updates[path] = changed + history
 for path, text in updates.items():

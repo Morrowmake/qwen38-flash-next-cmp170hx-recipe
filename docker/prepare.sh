@@ -32,7 +32,7 @@ set -euo pipefail
 # The 5.05 bpw branch at the revision the release was validated with; the MTP
 # drafter is inside the checkpoint.
 TARGET_REPO="${TARGET_REPO:-turboderp/Qwen3.8-Flash-Next-exl3}"
-TARGET_REVISION="${TARGET_REVISION:-{{CHECKPOINT_REVISION}}}"
+TARGET_REVISION="${TARGET_REVISION:-7cef615f7fd3681295b68848018876dfabc336c7}"
 NEED_DISK_GB="${NEED_DISK_GB:-120}"
 MODELS=/models
 CACHE=/cache
