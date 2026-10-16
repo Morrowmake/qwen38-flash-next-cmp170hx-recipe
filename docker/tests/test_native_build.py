@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -319,6 +320,17 @@ def test_pack_takes_a_build_of_a_commit_with_the_same_inputs(fork, tmp_path, cap
     other = git(opt / "vllm-src", "rev-parse", "HEAD")
     assert nb.main(argv + ["--commit", other]) == 1
     assert "the build used" in capsys.readouterr().err
+
+
+def test_check_tree_on_a_finalized_tree_reads_its_provenance(fork, capsys):
+    tree, native, commit = fork
+    assert nb.main(["install", "--native", str(native), "--tree", str(tree)]) == 0
+    shutil.rmtree(tree / ".git")
+    check = ["check-tree", "--manifest", str(native / "manifest.json"), "--tree", str(tree)]
+    (tree / "provenance.json").write_text(json.dumps({"engine_commit": commit}))
+    assert nb.main(check + ["--commit", commit]) == 0
+    assert nb.main(check + ["--commit", "c" * 40]) == 1
+    assert "records engine" in capsys.readouterr().err
 
 
 def test_shipped_manifest_belongs_to_the_engine_layer():

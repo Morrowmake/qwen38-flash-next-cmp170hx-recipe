@@ -609,9 +609,19 @@ def pack(args):
 
 def same_source(tree, manifest, commit):
     """The manifest belongs to `commit`: built from it, or from a commit whose
-    build inputs (csrc, cmake, CMakeLists.txt) are the same trees. The tree is
-    a checkout of `commit`; its inputs at HEAD must be the manifest's."""
+    build inputs (csrc, cmake, CMakeLists.txt) are the same trees. A Git tree
+    must be a checkout of `commit` with the manifest's inputs at HEAD. A
+    finalized image tree has no Git data: its provenance.json must name
+    `commit`, and the inputs were compared when pack installed the files."""
+    tree = Path(tree)
     built = manifest["source"]["commit"]
+    if not (tree / ".git").exists() and (tree / "provenance.json").is_file():
+        recorded = json.loads((tree / "provenance.json").read_text()).get("engine_commit")
+        if recorded != commit:
+            raise NativeError(f"{tree} records engine {recorded}, not {commit}")
+        if built != commit:
+            print(f"[native] built from {built}; build inputs were compared with {commit} at pack")
+        return
     head = git(tree, "rev-parse", "HEAD")
     if head != commit:
         raise NativeError(f"{tree} is at {head}, not the engine {commit}")
