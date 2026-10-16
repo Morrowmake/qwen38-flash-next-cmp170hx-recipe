@@ -83,8 +83,9 @@ ARG NATIVE_MANIFEST_SHA256
 RUN /opt/venv/bin/python /tmp/native_build.py pack --native /tmp/native --venv-check \
     --manifest-sha256 "${NATIVE_MANIFEST_SHA256}" --commit "${VLLM_COMMIT}" --opt /opt \
  && rm -rf /tmp/native
-RUN CUDA_VISIBLE_DEVICES= /opt/venv/bin/python -c "from vllm.ampere_marlin import require_extension; require_extension()"
-RUN CUDA_VISIBLE_DEVICES= /opt/venv/bin/python -c "import torch, vllm, vllm._C_stable_libtorch, vllm._moe_C_stable_libtorch, vllm._custom_ops, triton, tilelang, flashinfer, humming; from vllm.v1.attention.backends.mla import triton_mla_sparse; from vllm.v1.attention.ops import triton_mqa_logits, triton_e4m3; from vllm.distributed.device_communicators import host_shm_all_reduce; print(vllm.__version__, torch.__version__, torch.version.cuda)" \
+# Optional Marlin is checked only when the pinned manifest ships it.
+RUN CUDA_VISIBLE_DEVICES= /opt/venv/bin/python -c "import json; shipped = 'vllm/_ampere_marlin_C.abi3.so' in json.load(open('/opt/venv/.native-manifest.json'))['artefacts']; from vllm.sm80.kernels.marlin_moe.extension import require_extension; require_extension() if shipped else print('optional Marlin: not shipped')"
+RUN CUDA_VISIBLE_DEVICES= /opt/venv/bin/python -c "import torch, vllm, vllm._C_stable_libtorch, vllm._moe_C_stable_libtorch, vllm._custom_ops, triton, tilelang, flashinfer, humming; from vllm.sm80.attention import triton_mla_sparse; from vllm.sm80.kernels.attention import triton_mqa_logits, triton_e4m3; from vllm.sm80.distributed import host_shm_all_reduce; print(vllm.__version__, torch.__version__, torch.version.cuda)" \
  && find /opt/python /opt/venv /opt/vllm-src -name __pycache__ -type d -prune -exec rm -rf {} + \
  && /opt/venv/bin/python /tmp/runtime_tree.py finalize /opt "${VLLM_COMMIT}" \
  && /opt/venv/bin/python /tmp/runtime_tree.py check /opt "${VLLM_COMMIT}"

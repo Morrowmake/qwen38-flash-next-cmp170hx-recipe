@@ -110,6 +110,7 @@ LOCK
     python3 "$HERE/native_build.py" pack --native "$NATIVE_DIR" --venv-check \
         --manifest-sha256 "$NATIVE_MANIFEST_SHA256" --commit "$VLLM_COMMIT" --opt "$STAGE/opt"
     log "verify imports (no GPU)"
+    NATIVE_MANIFEST_SHIPPED="$STAGE/opt/venv/.native-manifest.json" \
     CUDA_VISIBLE_DEVICES= "$STAGE/opt/venv/bin/python" - <<'PY' | tee "$OUT/verify.txt"
 import importlib, sys, torch
 print(f"python      {sys.version.split()[0]}")
@@ -120,12 +121,17 @@ import vllm._C_stable_libtorch, vllm._moe_C_stable_libtorch, vllm._custom_ops  #
 for mod in ("triton", "tilelang", "flashinfer", "humming"):
     m = importlib.import_module(mod)
     print(f"{mod:<11} {getattr(m, '__version__', 'ok')}")
-from vllm.v1.attention.backends.mla import triton_mla_sparse            # noqa: F401
-from vllm.v1.attention.ops import triton_mqa_logits, triton_e4m3        # noqa: F401
-from vllm.distributed.device_communicators import host_shm_all_reduce   # noqa: F401
-from vllm.ampere_marlin import require_extension
-require_extension()
-print("sm_80 patch modules and optional Marlin registrations ok")
+from vllm.sm80.attention import triton_mla_sparse                      # noqa: F401
+from vllm.sm80.kernels.attention import triton_mqa_logits, triton_e4m3  # noqa: F401
+from vllm.sm80.distributed import host_shm_all_reduce                  # noqa: F401
+import json, os
+artefacts = json.load(open(os.environ["NATIVE_MANIFEST_SHIPPED"]))["artefacts"]
+if "vllm/_ampere_marlin_C.abi3.so" in artefacts:
+    from vllm.sm80.kernels.marlin_moe.extension import require_extension
+    require_extension()
+    print("sm_80 patch modules and optional Marlin registrations ok")
+else:
+    print("sm_80 patch modules ok; optional Marlin not shipped")
 PY
     unset VIRTUAL_ENV
 }
