@@ -8,6 +8,8 @@ context: 152.8 tok/s for one user, 674.7 tok/s across eight, 2,651 tok/s cold
 prefill and a 1,044,325-token KV pool. EXL3 5.05 bpw weights, BF16 KV cache,
 every weight on the GPUs except the n-gram table.**
 
+Also on these cards: [DeepSeek-V4.1-Flash on four CMP 170HX](https://github.com/Morrowmake/dsv41-flash-cmp170hx-recipe).
+
 Serve [turboderp/Qwen3.8-Flash-Next-exl3](https://huggingface.co/turboderp/Qwen3.8-Flash-Next-exl3)
 (EXL3, 5.05 bpw) on two NVIDIA CMP 170HX cards with a patched vLLM: an
 OpenAI-compatible API with the full 262,144-token context, native MTP
