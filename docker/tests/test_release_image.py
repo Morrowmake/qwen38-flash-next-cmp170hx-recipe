@@ -472,7 +472,7 @@ def test_container_environment_matches_start(tmp_path):
     assert run.returncode == 0, run.stderr
     actual = dict(line.split('=', 1) for line in run.stdout.splitlines() if '=' in line)
     for key in ('HOME', 'XDG_CACHE_HOME', 'HF_HOME', 'TMPDIR', 'RECIPE_CACHE_ROOT',
-                'PYTHONDONTWRITEBYTECODE', 'TRITON_CACHE_DIR', 'TORCH_EXTENSIONS_DIR',
+                'PYTHONPYCACHEPREFIX', 'TRITON_CACHE_DIR', 'TORCH_EXTENSIONS_DIR',
                 'VLLM_CUSTOM_ALLREDUCE_FLAGS_BUILD_DIR', 'VLLM_CACHE_ROOT',
                 'TILELANG_CACHE_DIR', 'TILELANG_TMP_DIR', 'CUDA_CACHE_PATH',
                 'FLASHINFER_WORKSPACE_BASE', 'TORCHINDUCTOR_CACHE_DIR'):
