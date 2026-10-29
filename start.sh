@@ -430,7 +430,7 @@ container_env() {
     # FlashInfer, TileLang, torch, vLLM, Hugging Face) goes under the mounted
     # cache directory, owned by you. USER and LOGNAME give Python a user name
     # for a uid the image does not know.
-    echo "PYTHONDONTWRITEBYTECODE=1"
+    echo "PYTHONPYCACHEPREFIX=/cache/pycache"
     echo "RECIPE_CACHE_ROOT=/cache"
     echo "TMPDIR=/cache/tmp"
     echo "HOME=/cache"
